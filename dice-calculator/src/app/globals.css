@@ -2,22 +2,36 @@
 
 @layer base {
   body {
-    @apply bg-gray-800 text-green-400 font-mono;
+    @apply bg-stone-50 text-zinc-900;
+    font-family: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    background-image:
+      linear-gradient(0deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply text-green-300;
+    @apply text-zinc-900;
+    font-family: var(--font-space-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 
   input[type="number"] {
-    @apply bg-gray-700 text-white border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent;
+    @apply bg-white text-zinc-900 border border-zinc-900 rounded-none shadow-none focus:outline-none focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900;
   }
 
   button {
-    @apply bg-green-500 text-gray-900 font-bold py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500;
+    @apply bg-zinc-900 text-white font-semibold py-2 px-4 rounded-none hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-stone-50 focus:ring-zinc-900/40;
   }
 
   label {
-    @apply text-gray-400;
+    @apply text-zinc-600 uppercase tracking-[0.12em] text-xs;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-space-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 }
