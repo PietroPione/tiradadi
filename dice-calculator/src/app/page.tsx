@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { calculateAverages } from '@/lib/dice-calculator';
 
 export default function Home() {
-  const [diceCount, setDiceCount] = useState(10);
-  const [hitValue, setHitValue] = useState(4);
-  const [woundValue, setWoundValue] = useState(4);
-  const [armorSave, setArmorSave] = useState(4);
-  const [wardSave, setWardSave] = useState(0);
+  const [diceCount, setDiceCount] = useState('10');
+  const [hitValue, setHitValue] = useState('4');
+  const [woundValue, setWoundValue] = useState('4');
+  const [armorSave, setArmorSave] = useState('4');
+  const [wardSave, setWardSave] = useState('0');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [results, setResults] = useState({
     successfulHits: 0,
@@ -17,18 +18,42 @@ export default function Home() {
     finalDamage: 0,
   });
 
-  const parseNumberInput = (value: string, fallback: number) => {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  };
-
   const handleCalculate = () => {
+    if (
+      diceCount.trim() === '' ||
+      hitValue.trim() === '' ||
+      woundValue.trim() === '' ||
+      armorSave.trim() === '' ||
+      wardSave.trim() === ''
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    const parsedDiceCount = Number.parseInt(diceCount, 10);
+    const parsedHitValue = Number.parseInt(hitValue, 10);
+    const parsedWoundValue = Number.parseInt(woundValue, 10);
+    const parsedArmorSave = Number.parseInt(armorSave, 10);
+    const parsedWardSave = Number.parseInt(wardSave, 10);
+
+    if (
+      Number.isNaN(parsedDiceCount) ||
+      Number.isNaN(parsedHitValue) ||
+      Number.isNaN(parsedWoundValue) ||
+      Number.isNaN(parsedArmorSave) ||
+      Number.isNaN(parsedWardSave)
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    setErrorMessage('');
     const newResults = calculateAverages({
-      diceCount,
-      hitValue,
-      woundValue,
-      armorSave,
-      wardSave,
+      diceCount: parsedDiceCount,
+      hitValue: parsedHitValue,
+      woundValue: parsedWoundValue,
+      armorSave: parsedArmorSave,
+      wardSave: parsedWardSave,
     });
     setResults(newResults);
   };
@@ -46,9 +71,6 @@ export default function Home() {
                 Dice Average Calculator
               </h1>
             </div>
-            <p className="text-sm text-zinc-500 sm:max-w-xs sm:text-right">
-              Quick averages for tabletop rolls. Clean inputs, crisp outputs.
-            </p>
           </div>
 
           <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
@@ -60,7 +82,7 @@ export default function Home() {
                   id="diceCount"
                   value={diceCount}
                   min="1"
-                  onChange={(e) => setDiceCount(parseNumberInput(e.target.value, 1))}
+                  onChange={(e) => setDiceCount(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -72,7 +94,7 @@ export default function Home() {
                   value={hitValue}
                   min="1"
                   max="7"
-                  onChange={(e) => setHitValue(parseNumberInput(e.target.value, 1))}
+                  onChange={(e) => setHitValue(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -84,7 +106,7 @@ export default function Home() {
                   value={woundValue}
                   min="1"
                   max="7"
-                  onChange={(e) => setWoundValue(parseNumberInput(e.target.value, 1))}
+                  onChange={(e) => setWoundValue(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -96,7 +118,7 @@ export default function Home() {
                   value={armorSave}
                   min="1"
                   max="7"
-                  onChange={(e) => setArmorSave(parseNumberInput(e.target.value, 1))}
+                  onChange={(e) => setArmorSave(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -108,7 +130,7 @@ export default function Home() {
                   value={wardSave}
                   min="0"
                   max="7"
-                  onChange={(e) => setWardSave(parseNumberInput(e.target.value, 0))}
+                  onChange={(e) => setWardSave(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -120,6 +142,11 @@ export default function Home() {
             >
               Calculate
             </button>
+            {errorMessage ? (
+              <p className="border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
+                {errorMessage}
+              </p>
+            ) : null}
 
             <div className="border-2 border-zinc-900 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
               <h2 className="text-lg font-semibold text-zinc-900">Results</h2>
