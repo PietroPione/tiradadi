@@ -10,6 +10,7 @@ export interface DiceCalculatorOutput {
   successfulHits: number;
   successfulWounds: number;
   failedArmorSaves: number;
+  failedWardSaves: number;
   finalDamage: number;
 }
 
@@ -35,12 +36,14 @@ export const calculateAverages = ({
   const successfulHits = diceCount * hitChance;
   const successfulWounds = successfulHits * woundChance;
   const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
-  const finalDamage = failedArmorSaves * (1 - wardSaveChance);
+  const failedWardSaves = failedArmorSaves * (1 - wardSaveChance);
+  const finalDamage = failedWardSaves;
 
   return {
     successfulHits: parseFloat(successfulHits.toFixed(2)),
     successfulWounds: parseFloat(successfulWounds.toFixed(2)),
     failedArmorSaves: parseFloat(failedArmorSaves.toFixed(2)),
+    failedWardSaves: parseFloat(failedWardSaves.toFixed(2)),
     finalDamage: parseFloat(finalDamage.toFixed(2)),
   };
 };

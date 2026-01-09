@@ -15,8 +15,10 @@ export default function Home() {
     successfulHits: 0,
     successfulWounds: 0,
     failedArmorSaves: 0,
+    failedWardSaves: 0,
     finalDamage: 0,
   });
+  const [hasResults, setHasResults] = useState(false);
 
   const handleCalculate = () => {
     if (
@@ -56,6 +58,7 @@ export default function Home() {
       wardSave: parsedWardSave,
     });
     setResults(newResults);
+    setHasResults(true);
   };
 
   return (
@@ -71,6 +74,16 @@ export default function Home() {
                 Dice Average Calculator
               </h1>
             </div>
+            {hasResults ? (
+              <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3 text-left sm:text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                  Final Damage
+                </p>
+                <p className="mt-1 font-mono text-xl font-bold text-white sm:text-2xl">
+                  {Math.round(results.finalDamage)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
@@ -162,6 +175,10 @@ export default function Home() {
                 <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
                   <span className="text-zinc-600">Failed Armor Saves</span>
                   <span className="font-mono text-lg text-zinc-900">{results.failedArmorSaves}</span>
+                </p>
+                <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
+                  <span className="text-zinc-600">Failed Ward Saves</span>
+                  <span className="font-mono text-lg text-zinc-900">{results.failedWardSaves}</span>
                 </p>
                 <div className="sm:col-span-2">
                   <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
