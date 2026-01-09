@@ -40,7 +40,7 @@ export default function Home() {
           <div className="flex flex-col gap-4 border-b-2 border-zinc-900 px-6 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
-                Retro Dice Lab
+                Mathammer
               </p>
               <h1 className="mt-2 text-3xl font-bold text-zinc-900 sm:text-4xl">
                 Dice Average Calculator
@@ -53,66 +53,66 @@ export default function Home() {
 
           <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-          <div>
-            <label htmlFor="diceCount" className="block">Dice Count</label>
-            <input
-              type="number"
-              id="diceCount"
-              value={diceCount}
-              min="1"
-              onChange={(e) => setDiceCount(parseNumberInput(e.target.value, 1))}
-              className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="hitValue" className="block">To Hit (X+)</label>
-            <input
-              type="number"
-              id="hitValue"
-              value={hitValue}
-              min="1"
-              max="7"
-              onChange={(e) => setHitValue(parseNumberInput(e.target.value, 1))}
-              className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="woundValue" className="block">To Wound (X+)</label>
-            <input
-              type="number"
-              id="woundValue"
-              value={woundValue}
-              min="1"
-              max="7"
-              onChange={(e) => setWoundValue(parseNumberInput(e.target.value, 1))}
-              className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-            />
-          </div>
-          <div>
-            <label htmlFor="armorSave" className="block">Armor Save (X+)</label>
-            <input
-              type="number"
-              id="armorSave"
-              value={armorSave}
-              min="1"
-              max="7"
-              onChange={(e) => setArmorSave(parseNumberInput(e.target.value, 1))}
-              className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor="wardSave" className="block">Ward Save (X+)</label>
-            <input
-              type="number"
-              id="wardSave"
-              value={wardSave}
-              min="0"
-              max="7"
-              onChange={(e) => setWardSave(parseNumberInput(e.target.value, 0))}
-              className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-            />
-          </div>
-        </div>
+              <div>
+                <label htmlFor="diceCount" className="block">Dice Count</label>
+                <input
+                  type="number"
+                  id="diceCount"
+                  value={diceCount}
+                  min="1"
+                  onChange={(e) => setDiceCount(parseNumberInput(e.target.value, 1))}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+              </div>
+              <div>
+                <label htmlFor="hitValue" className="block">To Hit (X+)</label>
+                <input
+                  type="number"
+                  id="hitValue"
+                  value={hitValue}
+                  min="1"
+                  max="7"
+                  onChange={(e) => setHitValue(parseNumberInput(e.target.value, 1))}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+              </div>
+              <div>
+                <label htmlFor="woundValue" className="block">To Wound (X+)</label>
+                <input
+                  type="number"
+                  id="woundValue"
+                  value={woundValue}
+                  min="1"
+                  max="7"
+                  onChange={(e) => setWoundValue(parseNumberInput(e.target.value, 1))}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+              </div>
+              <div>
+                <label htmlFor="armorSave" className="block">Armor Save (X+)</label>
+                <input
+                  type="number"
+                  id="armorSave"
+                  value={armorSave}
+                  min="1"
+                  max="7"
+                  onChange={(e) => setArmorSave(parseNumberInput(e.target.value, 1))}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="wardSave" className="block">Ward Save (X+)</label>
+                <input
+                  type="number"
+                  id="wardSave"
+                  value={wardSave}
+                  min="0"
+                  max="7"
+                  onChange={(e) => setWardSave(parseNumberInput(e.target.value, 0))}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+              </div>
+            </div>
 
             <button
               onClick={handleCalculate}
