@@ -17,6 +17,11 @@ export default function Home() {
     finalDamage: 0,
   });
 
+  const parseNumberInput = (value: string, fallback: number) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+
   const handleCalculate = () => {
     const newResults = calculateAverages({
       diceCount,
@@ -41,7 +46,7 @@ export default function Home() {
               id="diceCount"
               value={diceCount}
               min="1"
-              onChange={(e) => setDiceCount(parseInt(e.target.value))}
+              onChange={(e) => setDiceCount(parseNumberInput(e.target.value, 1))}
               className="w-full px-3 py-2 mt-1 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -53,7 +58,7 @@ export default function Home() {
               value={hitValue}
               min="1"
               max="7"
-              onChange={(e) => setHitValue(parseInt(e.target.value))}
+              onChange={(e) => setHitValue(parseNumberInput(e.target.value, 1))}
               className="w-full px-3 py-2 mt-1 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -65,7 +70,7 @@ export default function Home() {
               value={woundValue}
               min="1"
               max="7"
-              onChange={(e) => setWoundValue(parseInt(e.target.value))}
+              onChange={(e) => setWoundValue(parseNumberInput(e.target.value, 1))}
               className="w-full px-3 py-2 mt-1 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -77,7 +82,7 @@ export default function Home() {
               value={armorSave}
               min="1"
               max="7"
-              onChange={(e) => setArmorSave(parseInt(e.target.value))}
+              onChange={(e) => setArmorSave(parseNumberInput(e.target.value, 1))}
               className="w-full px-3 py-2 mt-1 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -89,7 +94,7 @@ export default function Home() {
               value={wardSave}
               min="0"
               max="7"
-              onChange={(e) => setWardSave(parseInt(e.target.value))}
+              onChange={(e) => setWardSave(parseNumberInput(e.target.value, 0))}
               className="w-full px-3 py-2 mt-1 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
