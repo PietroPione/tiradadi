@@ -6,6 +6,8 @@ import { calculateAverages } from '@/lib/dice-calculator';
 export default function Home() {
   const [diceCount, setDiceCount] = useState('10');
   const [hitValue, setHitValue] = useState('4');
+  const [poisonedAttack, setPoisonedAttack] = useState(false);
+  const [hitStrength, setHitStrength] = useState('3');
   const [woundValue, setWoundValue] = useState('4');
   const [armorSave, setArmorSave] = useState('4');
   const [wardSave, setWardSave] = useState('0');
@@ -14,6 +16,7 @@ export default function Home() {
   const [results, setResults] = useState({
     successfulHits: 0,
     successfulWounds: 0,
+    poisonedAutoWounds: 0,
     failedArmorSaves: 0,
     failedWardSaves: 0,
     finalDamage: 0,
@@ -24,6 +27,7 @@ export default function Home() {
     if (
       diceCount.trim() === '' ||
       hitValue.trim() === '' ||
+      hitStrength.trim() === '' ||
       woundValue.trim() === '' ||
       armorSave.trim() === '' ||
       wardSave.trim() === ''
@@ -34,6 +38,7 @@ export default function Home() {
 
     const parsedDiceCount = Number.parseInt(diceCount, 10);
     const parsedHitValue = Number.parseInt(hitValue, 10);
+    const parsedHitStrength = Number.parseInt(hitStrength, 10);
     const parsedWoundValue = Number.parseInt(woundValue, 10);
     const parsedArmorSave = Number.parseInt(armorSave, 10);
     const parsedWardSave = Number.parseInt(wardSave, 10);
@@ -41,6 +46,7 @@ export default function Home() {
     if (
       Number.isNaN(parsedDiceCount) ||
       Number.isNaN(parsedHitValue) ||
+      Number.isNaN(parsedHitStrength) ||
       Number.isNaN(parsedWoundValue) ||
       Number.isNaN(parsedArmorSave) ||
       Number.isNaN(parsedWardSave)
@@ -53,6 +59,8 @@ export default function Home() {
     const newResults = calculateAverages({
       diceCount: parsedDiceCount,
       hitValue: parsedHitValue,
+      poisonedAttack,
+      hitStrength: parsedHitStrength,
       woundValue: parsedWoundValue,
       armorSave: parsedArmorSave,
       wardSave: parsedWardSave,
@@ -82,6 +90,9 @@ export default function Home() {
                 <p className="mt-1 font-mono text-xl font-bold text-white sm:text-2xl">
                   {Math.round(results.finalDamage)}
                 </p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                  Real Damage: {results.finalDamage.toFixed(2)}
+                </p>
               </div>
             ) : null}
           </div>
@@ -108,6 +119,28 @@ export default function Home() {
                   min="1"
                   max="7"
                   onChange={(e) => setHitValue(e.target.value)}
+                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                />
+                <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    id="poisonedAttack"
+                    checked={poisonedAttack}
+                    onChange={(e) => setPoisonedAttack(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  <label htmlFor="poisonedAttack">Poisoned Attack</label>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="hitStrength" className="block">Hit Strength</label>
+                <input
+                  type="number"
+                  id="hitStrength"
+                  value={hitStrength}
+                  min="1"
+                  max="10"
+                  onChange={(e) => setHitStrength(e.target.value)}
                   className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 />
               </div>
@@ -168,6 +201,12 @@ export default function Home() {
                   <span className="text-zinc-600">Successful Hits</span>
                   <span className="font-mono text-lg text-zinc-900">{results.successfulHits}</span>
                 </p>
+                {poisonedAttack ? (
+                  <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
+                    <span className="text-zinc-600">Poisoned Auto Wounds</span>
+                    <span className="font-mono text-lg text-zinc-900">{results.poisonedAutoWounds}</span>
+                  </p>
+                ) : null}
                 <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
                   <span className="text-zinc-600">Successful Wounds</span>
                   <span className="font-mono text-lg text-zinc-900">{results.successfulWounds}</span>
@@ -182,9 +221,14 @@ export default function Home() {
                 </p>
                 <div className="sm:col-span-2">
                   <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-                    <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                      Final Damage
-                    </span>
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
+                        Final Damage
+                      </span>
+                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                        Real Damage: {results.finalDamage.toFixed(2)}
+                      </p>
+                    </div>
                     <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
                       {Math.round(results.finalDamage)}
                     </span>
