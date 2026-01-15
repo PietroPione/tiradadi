@@ -123,7 +123,7 @@ export default function ProbabilityCalculator({
 
       <button
         onClick={onCalculate}
-        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em]"
+        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
       >
         Calculate
       </button>
