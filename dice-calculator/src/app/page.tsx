@@ -32,6 +32,8 @@ export default function Home() {
   const [throwResults, setThrowResults] = useState({
     successfulHits: 0,
     successfulWounds: 0,
+    poisonedAutoWounds: 0,
+    nonPoisonHits: 0,
     failedArmorSaves: 0,
     failedWardSaves: 0,
     finalDamage: 0,
@@ -40,6 +42,8 @@ export default function Home() {
     hitTarget: 0,
     woundTarget: 0,
     effectiveArmorSave: 0,
+    poisonedAutoWounds: 0,
+    nonPoisonHits: 0,
     hitRolls: [] as number[],
     woundRolls: [] as number[],
     armorRolls: [] as number[],
@@ -102,19 +106,26 @@ export default function Home() {
     setErrorMessage('');
     const hitTarget = getHitTarget(parsedAttackersAc, parsedDefendersAc);
     const hitRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
-    const hitSuccesses = hitRolls.filter((roll) => roll >= hitTarget).length;
+    const poisonedAutoWounds = poisonedAttack
+      ? hitRolls.filter((roll) => roll === 6).length
+      : 0;
+    const nonPoisonHits = poisonedAttack
+      ? hitRolls.filter((roll) => roll >= hitTarget && roll !== 6).length
+      : hitRolls.filter((roll) => roll >= hitTarget).length;
+    const hitSuccesses = poisonedAutoWounds + nonPoisonHits;
 
     const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
-    const woundRolls = Array.from({ length: hitSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+    const woundRolls = Array.from({ length: nonPoisonHits }, () => Math.floor(Math.random() * 6) + 1);
     const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
+    const totalWounds = poisonedAttack ? poisonedAutoWounds + woundSuccesses : woundSuccesses;
 
     const effectiveArmorSave = parsedThrowArmorSave + (parsedHitStrength - 3);
-    let failedArmorSaves = woundSuccesses;
+    let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
     if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
-      armorRolls = Array.from({ length: woundSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+      armorRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
       const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
-      failedArmorSaves = woundSuccesses - armorSuccesses;
+      failedArmorSaves = totalWounds - armorSuccesses;
     }
 
     let failedWardSaves = failedArmorSaves;
@@ -127,7 +138,9 @@ export default function Home() {
 
     setThrowResults({
       successfulHits: hitSuccesses,
-      successfulWounds: woundSuccesses,
+      successfulWounds: totalWounds,
+      poisonedAutoWounds,
+      nonPoisonHits,
       failedArmorSaves,
       failedWardSaves,
       finalDamage: failedWardSaves,
@@ -136,6 +149,8 @@ export default function Home() {
       hitTarget,
       woundTarget,
       effectiveArmorSave,
+      poisonedAutoWounds,
+      nonPoisonHits,
       hitRolls,
       woundRolls,
       armorRolls,
@@ -200,7 +215,7 @@ export default function Home() {
                 Mathammer
               </p>
               <h1 className="mt-2 text-3xl font-bold text-zinc-900 sm:text-4xl">
-                Dice Average Calculator
+                Never use a dice anymore!
               </h1>
             </div>
             {mode === 'probability' && hasResults ? (
@@ -223,22 +238,20 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setMode('probability')}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${
-                  mode === 'probability'
+                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${mode === 'probability'
                     ? 'border-zinc-900 bg-zinc-900 text-white'
                     : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                  }`}
               >
                 Probability calculator
               </button>
               <button
                 type="button"
                 onClick={() => setMode('throw')}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${
-                  mode === 'throw'
+                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${mode === 'throw'
                     ? 'border-zinc-900 bg-zinc-900 text-white'
                     : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                  }`}
               >
                 Throw dices
               </button>
@@ -247,7 +260,7 @@ export default function Home() {
             {mode === 'probability' ? (
               <div className="border-2 border-zinc-900 bg-white px-4 py-5 sm:px-6 sm:py-6">
                 <h2 className="text-lg font-semibold text-zinc-900">Probability calculator</h2>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                <div className="mt-4 space-y-5">
                   <div>
                     <label htmlFor="diceCount" className="block">Dice Count</label>
                     <input
@@ -260,74 +273,89 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="hitValue" className="block">To Hit (X+)</label>
-                    <input
-                      type="number"
-                      id="hitValue"
-                      value={hitValue}
-                      min="1"
-                      max="7"
-                      onChange={(e) => setHitValue(e.target.value)}
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                    />
-                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                      <input
-                        type="checkbox"
-                        id="poisonedAttack"
-                        checked={poisonedAttack}
-                        onChange={(e) => setPoisonedAttack(e.target.checked)}
-                        className="h-4 w-4 border-2 border-zinc-900"
-                      />
-                      <label htmlFor="poisonedAttack">Poisoned Attack</label>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To hit</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:gap-5">
+                      <div>
+                        <label htmlFor="hitValue" className="block">To Hit (X+)</label>
+                        <input
+                          type="number"
+                          id="hitValue"
+                          value={hitValue}
+                          min="1"
+                          max="7"
+                          onChange={(e) => setHitValue(e.target.value)}
+                          className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                        />
+                        <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                          <input
+                            type="checkbox"
+                            id="poisonedAttack"
+                            checked={poisonedAttack}
+                            onChange={(e) => setPoisonedAttack(e.target.checked)}
+                            className="h-4 w-4 border-2 border-zinc-900"
+                          />
+                          <label htmlFor="poisonedAttack">Poisoned Attack</label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="hitStrength" className="block">Hit Strength</label>
-                    <input
-                      type="number"
-                      id="hitStrength"
-                      value={hitStrength}
-                      min="1"
-                      max="10"
-                      onChange={(e) => setHitStrength(e.target.value)}
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                    />
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                      <div>
+                        <label htmlFor="hitStrength" className="block">Hit Strength</label>
+                        <input
+                          type="number"
+                          id="hitStrength"
+                          value={hitStrength}
+                          min="1"
+                          max="10"
+                          onChange={(e) => setHitStrength(e.target.value)}
+                          className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="woundValue" className="block">To Wound (X+)</label>
+                        <input
+                          type="number"
+                          id="woundValue"
+                          value={woundValue}
+                          min="1"
+                          max="7"
+                          onChange={(e) => setWoundValue(e.target.value)}
+                          className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="woundValue" className="block">To Wound (X+)</label>
-                    <input
-                      type="number"
-                      id="woundValue"
-                      value={woundValue}
-                      min="1"
-                      max="7"
-                      onChange={(e) => setWoundValue(e.target.value)}
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="armorSave" className="block">Armor Save (X+)</label>
-                    <input
-                      type="number"
-                      id="armorSave"
-                      value={armorSave}
-                      min="1"
-                      max="7"
-                      onChange={(e) => setArmorSave(e.target.value)}
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="wardSave" className="block">Ward Save (X+)</label>
-                    <input
-                      type="number"
-                      id="wardSave"
-                      value={wardSave}
-                      min="0"
-                      max="7"
-                      onChange={(e) => setWardSave(e.target.value)}
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                    />
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Savings</p>
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                      <div>
+                        <label htmlFor="armorSave" className="block">Armor Save (X+)</label>
+                        <input
+                          type="number"
+                          id="armorSave"
+                          value={armorSave}
+                          min="1"
+                          max="7"
+                          onChange={(e) => setArmorSave(e.target.value)}
+                          className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="wardSave" className="block">Ward Save (X+)</label>
+                        <input
+                          type="number"
+                          id="wardSave"
+                          value={wardSave}
+                          min="0"
+                          max="7"
+                          onChange={(e) => setWardSave(e.target.value)}
+                          className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -427,6 +455,16 @@ export default function Home() {
                         />
                       </div>
                     </div>
+                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        id="poisonedAttackThrow"
+                        checked={poisonedAttack}
+                        onChange={(e) => setPoisonedAttack(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      <label htmlFor="poisonedAttackThrow">Poisoned Attack</label>
+                    </div>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
@@ -507,6 +545,14 @@ export default function Home() {
                           <span className="font-mono text-lg text-zinc-900">{throwResults.successfulHits}</span>
                         </p>
                         <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
+                          <span className="text-zinc-600">Poisoned attack</span>
+                          <span className="font-mono text-lg text-zinc-900">{throwResults.poisonedAutoWounds}</span>
+                        </p>
+                        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
+                          <span className="text-zinc-600">Hit that are not poisoned attacks</span>
+                          <span className="font-mono text-lg text-zinc-900">{throwResults.nonPoisonHits}</span>
+                        </p>
+                        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
                           <span className="text-zinc-600">Successful Wounds</span>
                           <span className="font-mono text-lg text-zinc-900">{throwResults.successfulWounds}</span>
                         </p>
@@ -535,21 +581,23 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-4 border-2 border-dashed border-zinc-400 bg-white px-4 py-4 sm:px-6">
-                      <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-700">Debug</h3>
-                      <div className="mt-3 space-y-2 text-xs text-zinc-600">
-                        <p>Hit Target: <span className="font-mono text-zinc-900">{throwDebug.hitTarget}+</span></p>
-                        <p>Hit Rolls: <span className="font-mono text-zinc-900">{throwDebug.hitRolls.join(', ') || '-'}</span></p>
-                        <p>Wound Target: <span className="font-mono text-zinc-900">{throwDebug.woundTarget}+</span></p>
-                        <p>Wound Rolls: <span className="font-mono text-zinc-900">{throwDebug.woundRolls.join(', ') || '-'}</span></p>
-                        <p>Armor Save Target: <span className="font-mono text-zinc-900">{throwDebug.effectiveArmorSave}+</span></p>
-                        <p>Armor Rolls: <span className="font-mono text-zinc-900">{throwDebug.armorRolls.join(', ') || '-'}</span></p>
-                        <p>Ward Save Target: <span className="font-mono text-zinc-900">{throwWardSave}+</span></p>
-                        <p>Ward Rolls: <span className="font-mono text-zinc-900">{throwDebug.wardRolls.join(', ') || '-'}</span></p>
-                      </div>
-                    </div>
                   </>
                 ) : null}
+                <div className="mt-4 border-2 border-dashed border-zinc-400 bg-white px-4 py-4 sm:px-6">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-700">Debug</h3>
+                  <div className="mt-3 space-y-2 text-xs text-zinc-600">
+                    <p>Hit Target: <span className="font-mono text-zinc-900">{throwDebug.hitTarget}+</span></p>
+                    <p>Poisoned Attacks: <span className="font-mono text-zinc-900">{throwDebug.poisonedAutoWounds}</span></p>
+                    <p>Non-Poison Hits: <span className="font-mono text-zinc-900">{throwDebug.nonPoisonHits}</span></p>
+                    <p>Hit Rolls: <span className="font-mono text-zinc-900">{throwDebug.hitRolls.join(', ') || '-'}</span></p>
+                    <p>Wound Target: <span className="font-mono text-zinc-900">{throwDebug.woundTarget}+</span></p>
+                    <p>Wound Rolls: <span className="font-mono text-zinc-900">{throwDebug.woundRolls.join(', ') || '-'}</span></p>
+                    <p>Armor Save Target: <span className="font-mono text-zinc-900">{throwDebug.effectiveArmorSave}+</span></p>
+                    <p>Armor Rolls: <span className="font-mono text-zinc-900">{throwDebug.armorRolls.join(', ') || '-'}</span></p>
+                    <p>Ward Save Target: <span className="font-mono text-zinc-900">{throwWardSave}+</span></p>
+                    <p>Ward Rolls: <span className="font-mono text-zinc-900">{throwDebug.wardRolls.join(', ') || '-'}</span></p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

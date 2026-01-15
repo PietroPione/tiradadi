@@ -14,7 +14,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dice Average Calculator",
+  title: "Never use a dice anymore!",
   description: "A simple app to calculate dice roll averages for tabletop games.",
 };
 
