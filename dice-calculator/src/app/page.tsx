@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import CalculatorHeader from '@/components/calculator/CalculatorHeader';
+import BreakMoraleCheck from '@/components/calculator/BreakMoraleCheck';
 import GeneralThrowCalculator from '@/components/calculator/GeneralThrowCalculator';
 import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityCalculator from '@/components/calculator/ProbabilityCalculator';
@@ -12,7 +13,7 @@ import SystemSelector from '@/components/navigation/SystemSelector';
 import { calculateAverages } from '@/lib/dice-calculator';
 
 type GameSystem = 'wfb8';
-type Phase = 'general' | 'shooting' | 'combat';
+type Phase = 'general' | 'shooting' | 'combat' | 'morale';
 
 export default function Home() {
   const [diceCount, setDiceCount] = useState('10');
@@ -34,14 +35,17 @@ export default function Home() {
   const [phase, setPhase] = useState<Phase | null>(null);
   const [generalMode, setGeneralMode] = useState<'probability' | 'throw'>('probability');
   const [generalDiceCount, setGeneralDiceCount] = useState('10');
+  const [generalObjective, setGeneralObjective] = useState<'target' | 'total'>('target');
   const [generalTargetValue, setGeneralTargetValue] = useState('3');
   const [generalAverageResults, setGeneralAverageResults] = useState({
     averageSuccesses: 0,
     successChance: 0,
+    averageTotal: 0,
   });
   const [generalThrowResults, setGeneralThrowResults] = useState({
     successes: 0,
     rolls: [] as number[],
+    total: 0,
   });
   const [generalErrorMessage, setGeneralErrorMessage] = useState('');
   const [hasGeneralAverageResults, setHasGeneralAverageResults] = useState(false);
@@ -54,6 +58,8 @@ export default function Home() {
     lightCover: false,
     hardCover: false,
   });
+  const [shootingPoisonedAttack, setShootingPoisonedAttack] = useState(false);
+  const [shootingAutoHit, setShootingAutoHit] = useState(false);
   const [shootingMode, setShootingMode] = useState<'probability' | 'throw'>('probability');
   const [shootingDiceCount, setShootingDiceCount] = useState('10');
   const [shootingHitStrength, setShootingHitStrength] = useState('3');
@@ -80,6 +86,20 @@ export default function Home() {
   const [shootingErrorMessage, setShootingErrorMessage] = useState('');
   const [hasShootingProbabilityResults, setHasShootingProbabilityResults] = useState(false);
   const [hasShootingThrowResults, setHasShootingThrowResults] = useState(false);
+  const [moraleDiscipline, setMoraleDiscipline] = useState('8');
+  const [moraleBonus, setMoraleBonus] = useState('0');
+  const [moraleMalus, setMoraleMalus] = useState('0');
+  const [moraleStubborn, setMoraleStubborn] = useState(false);
+  const [moraleWithThreeDice, setMoraleWithThreeDice] = useState(false);
+  const [moraleErrorMessage, setMoraleErrorMessage] = useState('');
+  const [moraleResults, setMoraleResults] = useState<{
+    rolls: number[];
+    usedRolls: number[];
+    total: number;
+    target: number;
+    outcome: 'Passed' | 'Failed';
+    isDoubleOne: boolean;
+  } | null>(null);
 
   const [results, setResults] = useState({
     successfulHits: 0,
@@ -146,16 +166,21 @@ export default function Home() {
     if (
       Number.isNaN(parsedDiceCount) ||
       parsedDiceCount <= 0 ||
-      Number.isNaN(parsedTargetValue)
+      (generalObjective === 'target' && Number.isNaN(parsedTargetValue))
     ) {
       setGeneralErrorMessage('Devi inserire un risultato di dado');
       return;
     }
 
     setGeneralErrorMessage('');
-    const chance = getSuccessChance(parsedTargetValue);
-    const averageSuccesses = parsedDiceCount * chance;
-    setGeneralAverageResults({ averageSuccesses, successChance: chance });
+    if (generalObjective === 'target') {
+      const chance = getSuccessChance(parsedTargetValue);
+      const averageSuccesses = parsedDiceCount * chance;
+      setGeneralAverageResults({ averageSuccesses, successChance: chance, averageTotal: 0 });
+    } else {
+      const averageTotal = parsedDiceCount * 3.5;
+      setGeneralAverageResults({ averageSuccesses: 0, successChance: 0, averageTotal });
+    }
     setHasGeneralAverageResults(true);
   };
 
@@ -166,7 +191,7 @@ export default function Home() {
     if (
       Number.isNaN(parsedDiceCount) ||
       parsedDiceCount <= 0 ||
-      Number.isNaN(parsedTargetValue)
+      (generalObjective === 'target' && Number.isNaN(parsedTargetValue))
     ) {
       setGeneralErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -174,8 +199,11 @@ export default function Home() {
 
     setGeneralErrorMessage('');
     const rolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
-    const successes = rolls.filter((roll) => roll >= parsedTargetValue).length;
-    setGeneralThrowResults({ successes, rolls });
+    const total = rolls.reduce((sum, roll) => sum + roll, 0);
+    const successes = generalObjective === 'target'
+      ? rolls.filter((roll) => roll >= parsedTargetValue).length
+      : 0;
+    setGeneralThrowResults({ successes, rolls, total });
     setHasGeneralThrowResults(true);
   };
 
@@ -184,9 +212,13 @@ export default function Home() {
     if (Number.isNaN(parsedBallisticSkill)) {
       return Number.NaN;
     }
+    if (shootingAutoHit) {
+      return 1;
+    }
     const baseResult = 7 - parsedBallisticSkill;
     const modifierCount = Object.values(shootingModifiers).filter(Boolean).length;
-    return baseResult + modifierCount;
+    const hardCoverPenalty = shootingModifiers.hardCover ? 1 : 0;
+    return baseResult + modifierCount + hardCoverPenalty;
   };
 
   const handleShootingModifierChange = (
@@ -195,8 +227,52 @@ export default function Home() {
   ) => {
     setShootingModifiers((prev) => ({
       ...prev,
+      lightCover: key === 'hardCover' && value ? false : prev.lightCover,
+      hardCover: key === 'lightCover' && value ? false : prev.hardCover,
       [key]: value,
     }));
+  };
+
+  const handleShootingAutoHitChange = (value: boolean) => {
+    setShootingAutoHit(value);
+    if (value) {
+      setShootingPoisonedAttack(false);
+    }
+  };
+
+  const handleMoraleRoll = () => {
+    const parsedDiscipline = Number.parseInt(moraleDiscipline, 10);
+    const parsedBonus = Number.parseInt(moraleBonus, 10);
+    const parsedMalus = Number.parseInt(moraleMalus, 10);
+
+    if (
+      Number.isNaN(parsedDiscipline) ||
+      Number.isNaN(parsedBonus) ||
+      Number.isNaN(parsedMalus)
+    ) {
+      setMoraleErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    setMoraleErrorMessage('');
+    const target = moraleStubborn
+      ? parsedDiscipline
+      : parsedDiscipline + parsedBonus - parsedMalus;
+    const diceCount = moraleWithThreeDice ? 3 : 2;
+    const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const usedRolls = [...rolls].sort((a, b) => a - b).slice(0, 2);
+    const total = usedRolls.reduce((sum, roll) => sum + roll, 0);
+    const isDoubleOne = usedRolls[0] === 1 && usedRolls[1] === 1;
+    const outcome = isDoubleOne || total <= target ? 'Passed' : 'Failed';
+
+    setMoraleResults({
+      rolls,
+      usedRolls,
+      total,
+      target,
+      outcome,
+      isDoubleOne,
+    });
   };
 
   const getShootingSuccessChance = (target: number) => {
@@ -242,7 +318,11 @@ export default function Home() {
     }
 
     setShootingErrorMessage('');
-    const hitChance = getShootingSuccessChance(resultNeeded);
+    const hitChance = shootingAutoHit ? 1 : getShootingSuccessChance(resultNeeded);
+    const poisonedAutoWoundChance = shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit ? 1 / 6 : 0;
+    const nonPoisonHitChance = poisonedAutoWoundChance > 0
+      ? Math.max(0, hitChance - 1 / 6)
+      : hitChance;
     const woundChance = getStandardChance(parsedWoundValue);
     const armorSaveModifier = parsedHitStrength - 3;
     const effectiveArmorSave = parsedArmorSave + armorSaveModifier;
@@ -250,7 +330,9 @@ export default function Home() {
     const wardSaveChance = getStandardChance(parsedWardSave);
 
     const successfulHits = parsedDiceCount * hitChance;
-    const successfulWounds = successfulHits * woundChance;
+    const autoWounds = parsedDiceCount * poisonedAutoWoundChance;
+    const hitsToWound = parsedDiceCount * nonPoisonHitChance;
+    const successfulWounds = autoWounds + hitsToWound * woundChance;
     const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
     const failedWardSaves = failedArmorSaves * (1 - wardSaveChance);
     const finalDamage = failedWardSaves;
@@ -258,7 +340,7 @@ export default function Home() {
     setShootingProbabilityResults({
       successfulHits: parseFloat(successfulHits.toFixed(2)),
       successfulWounds: parseFloat(successfulWounds.toFixed(2)),
-      poisonedAutoWounds: 0,
+      poisonedAutoWounds: parseFloat(autoWounds.toFixed(2)),
       failedArmorSaves: parseFloat(failedArmorSaves.toFixed(2)),
       failedWardSaves: parseFloat(failedWardSaves.toFixed(2)),
       finalDamage: parseFloat(finalDamage.toFixed(2)),
@@ -290,6 +372,8 @@ export default function Home() {
     setShootingErrorMessage('');
     const rolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
     let hitSuccesses = 0;
+    let poisonedAutoWounds = 0;
+    let nonPoisonHits = 0;
 
     if (resultNeeded >= 10) {
       setShootingThrowResults({
@@ -304,8 +388,16 @@ export default function Home() {
       return;
     }
 
-    if (resultNeeded <= 6) {
-      hitSuccesses = rolls.filter((roll) => roll >= resultNeeded).length;
+    if (shootingAutoHit) {
+      hitSuccesses = parsedDiceCount;
+    } else if (resultNeeded <= 6) {
+      poisonedAutoWounds = shootingPoisonedAttack
+        ? rolls.filter((roll) => roll === 6).length
+        : 0;
+      nonPoisonHits = shootingPoisonedAttack
+        ? rolls.filter((roll) => roll >= resultNeeded && roll !== 6).length
+        : rolls.filter((roll) => roll >= resultNeeded).length;
+      hitSuccesses = poisonedAutoWounds + nonPoisonHits;
     } else {
       const followUpTarget = resultNeeded - 3;
       rolls.forEach((roll) => {
@@ -319,16 +411,19 @@ export default function Home() {
     }
 
     const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
-    const woundRolls = Array.from({ length: hitSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+    const woundRolls = Array.from({ length: nonPoisonHits || hitSuccesses }, () => Math.floor(Math.random() * 6) + 1);
     const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
+    const totalWounds = shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit
+      ? poisonedAutoWounds + woundSuccesses
+      : woundSuccesses;
 
     const effectiveArmorSave = parsedArmorSave + (parsedHitStrength - 3);
-    let failedArmorSaves = woundSuccesses;
+    let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
     if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
-      armorRolls = Array.from({ length: woundSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+      armorRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
       const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
-      failedArmorSaves = woundSuccesses - armorSuccesses;
+      failedArmorSaves = totalWounds - armorSuccesses;
     }
 
     let failedWardSaves = failedArmorSaves;
@@ -341,8 +436,8 @@ export default function Home() {
 
     setShootingThrowResults({
       successfulHits: hitSuccesses,
-      successfulWounds: woundSuccesses,
-      poisonedAutoWounds: 0,
+      successfulWounds: totalWounds,
+      poisonedAutoWounds: shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit ? poisonedAutoWounds : 0,
       failedArmorSaves,
       failedWardSaves,
       finalDamage: failedWardSaves,
@@ -526,6 +621,7 @@ export default function Home() {
             ) : phase === 'general' ? (
               <GeneralThrowCalculator
                 diceCount={generalDiceCount}
+                objective={generalObjective}
                 targetValue={generalTargetValue}
                 mode={generalMode}
                 errorMessage={generalErrorMessage}
@@ -535,6 +631,7 @@ export default function Home() {
                 hasThrowResults={hasGeneralThrowResults}
                 onBack={handlePhaseBack}
                 onDiceCountChange={setGeneralDiceCount}
+                onObjectiveChange={setGeneralObjective}
                 onTargetValueChange={setGeneralTargetValue}
                 onModeChange={setGeneralMode}
                 onAverageCalculate={handleGeneralAverageCalculate}
@@ -545,6 +642,8 @@ export default function Home() {
                 diceCount={shootingDiceCount}
                 mode={shootingMode}
                 ballisticSkill={ballisticSkill}
+                poisonedAttack={shootingPoisonedAttack}
+                autoHit={shootingAutoHit}
                 hitStrength={shootingHitStrength}
                 targetToughness={shootingTargetToughness}
                 woundValue={shootingWoundValue}
@@ -560,6 +659,8 @@ export default function Home() {
                 onDiceCountChange={setShootingDiceCount}
                 onModeChange={setShootingMode}
                 onBallisticSkillChange={setBallisticSkill}
+                onPoisonedAttackChange={setShootingPoisonedAttack}
+                onAutoHitChange={handleShootingAutoHitChange}
                 onHitStrengthChange={setShootingHitStrength}
                 onTargetToughnessChange={setShootingTargetToughness}
                 onWoundValueChange={setShootingWoundValue}
@@ -568,6 +669,23 @@ export default function Home() {
                 onModifierChange={handleShootingModifierChange}
                 onAverageCalculate={handleShootingAverageCalculate}
                 onThrowCalculate={handleShootingThrowCalculate}
+                onBack={handlePhaseBack}
+              />
+            ) : phase === 'morale' ? (
+              <BreakMoraleCheck
+                discipline={moraleDiscipline}
+                bonus={moraleBonus}
+                malus={moraleMalus}
+                stubborn={moraleStubborn}
+                withThreeDice={moraleWithThreeDice}
+                errorMessage={moraleErrorMessage}
+                results={moraleResults}
+                onDisciplineChange={setMoraleDiscipline}
+                onBonusChange={setMoraleBonus}
+                onMalusChange={setMoraleMalus}
+                onStubbornChange={setMoraleStubborn}
+                onWithThreeDiceChange={setMoraleWithThreeDice}
+                onRoll={handleMoraleRoll}
                 onBack={handlePhaseBack}
               />
             ) : (

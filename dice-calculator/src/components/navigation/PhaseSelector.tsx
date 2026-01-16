@@ -1,6 +1,6 @@
 import Card from '@/components/ui/Card';
 
-type Phase = 'general' | 'shooting' | 'combat';
+type Phase = 'general' | 'shooting' | 'combat' | 'morale';
 
 type PhaseSelectorProps = {
   systemLabel: string;
@@ -45,6 +45,13 @@ export default function PhaseSelector({ systemLabel, onSelect, onBack }: PhaseSe
           className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
         >
           Combat phase
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('morale')}
+          className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
+        >
+          Break / Morale check
         </button>
       </div>
     </Card>

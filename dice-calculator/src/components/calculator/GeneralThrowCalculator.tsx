@@ -5,15 +5,18 @@ import ModeSwitch from '@/components/calculator/ModeSwitch';
 type GeneralAverageResults = {
   averageSuccesses: number;
   successChance: number;
+  averageTotal: number;
 };
 
 type GeneralThrowResults = {
   successes: number;
   rolls: number[];
+  total: number;
 };
 
 type GeneralThrowCalculatorProps = {
   diceCount: string;
+  objective: 'target' | 'total';
   targetValue: string;
   mode: 'probability' | 'throw';
   errorMessage: string;
@@ -23,6 +26,7 @@ type GeneralThrowCalculatorProps = {
   hasThrowResults: boolean;
   onBack: () => void;
   onDiceCountChange: (value: string) => void;
+  onObjectiveChange: (objective: 'target' | 'total') => void;
   onTargetValueChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
   onAverageCalculate: () => void;
@@ -31,6 +35,7 @@ type GeneralThrowCalculatorProps = {
 
 export default function GeneralThrowCalculator({
   diceCount,
+  objective,
   targetValue,
   mode,
   errorMessage,
@@ -40,6 +45,7 @@ export default function GeneralThrowCalculator({
   hasThrowResults,
   onBack,
   onDiceCountChange,
+  onObjectiveChange,
   onTargetValueChange,
   onModeChange,
   onAverageCalculate,
@@ -65,19 +71,48 @@ export default function GeneralThrowCalculator({
       <div className="mt-4 space-y-5">
         <InputField
           id="generalDiceCount"
-          label="Dice Count"
+          label="Number of dice to throw"
           value={diceCount}
           min="1"
           onChange={onDiceCountChange}
         />
-        <InputField
-          id="generalTarget"
-          label="Target (X+)"
-          value={targetValue}
-          min="1"
-          max="7"
-          onChange={onTargetValueChange}
-        />
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Objective</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onObjectiveChange('target')}
+              className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
+                objective === 'target'
+                  ? 'border-zinc-900 bg-zinc-900 text-white'
+                  : 'border-zinc-900 bg-white text-zinc-900'
+              }`}
+            >
+              Target value
+            </button>
+            <button
+              type="button"
+              onClick={() => onObjectiveChange('total')}
+              className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
+                objective === 'total'
+                  ? 'border-zinc-900 bg-zinc-900 text-white'
+                  : 'border-zinc-900 bg-white text-zinc-900'
+              }`}
+            >
+              Total throw
+            </button>
+          </div>
+        </div>
+        {objective === 'target' ? (
+          <InputField
+            id="generalTarget"
+            label="Target (X+)"
+            value={targetValue}
+            min="1"
+            max="7"
+            onChange={onTargetValueChange}
+          />
+        ) : null}
       </div>
 
       <button
@@ -97,29 +132,44 @@ export default function GeneralThrowCalculator({
         <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
           <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
           <div className="mt-4 space-y-3 text-sm">
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Average successes</span>
-              <span className="font-mono text-lg text-zinc-900">
-                {averageResults.averageSuccesses.toFixed(2)}
-              </span>
-            </p>
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Success chance</span>
-              <span className="font-mono text-lg text-zinc-900">
-                {(averageResults.successChance * 100).toFixed(2)}%
-              </span>
-            </p>
+            {objective === 'target' ? (
+              <>
+                <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
+                  <span className="text-zinc-600">Average successes</span>
+                  <span className="font-mono text-lg text-zinc-900">
+                    {averageResults.averageSuccesses.toFixed(2)}
+                  </span>
+                </p>
+                <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
+                  <span className="text-zinc-600">Success chance</span>
+                  <span className="font-mono text-lg text-zinc-900">
+                    {(averageResults.successChance * 100).toFixed(2)}%
+                  </span>
+                </p>
+              </>
+            ) : (
+              <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
+                <span className="text-zinc-600">Average total</span>
+                <span className="font-mono text-lg text-zinc-900">
+                  {averageResults.averageTotal.toFixed(2)}
+                </span>
+              </p>
+            )}
             <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                  Average successes
+                  {objective === 'target' ? 'Average successes' : 'Average total'}
                 </span>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                  Real value: {averageResults.averageSuccesses.toFixed(2)}
+                  Real value: {objective === 'target'
+                    ? averageResults.averageSuccesses.toFixed(2)
+                    : averageResults.averageTotal.toFixed(2)}
                 </p>
               </div>
               <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-                {Math.round(averageResults.averageSuccesses)}
+                {Math.round(objective === 'target'
+                  ? averageResults.averageSuccesses
+                  : averageResults.averageTotal)}
               </span>
             </div>
           </div>
@@ -130,21 +180,28 @@ export default function GeneralThrowCalculator({
         <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
           <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
           <div className="mt-4 space-y-2 text-sm">
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Number of successes</span>
-              <span className="font-mono text-lg text-zinc-900">{throwResults.successes}</span>
-            </p>
+            {objective === 'target' ? (
+              <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
+                <span className="text-zinc-600">Number of successes</span>
+                <span className="font-mono text-lg text-zinc-900">{throwResults.successes}</span>
+              </p>
+            ) : (
+              <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
+                <span className="text-zinc-600">Total throw</span>
+                <span className="font-mono text-lg text-zinc-900">{throwResults.total}</span>
+              </p>
+            )}
             <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                  Successes
+                  {objective === 'target' ? 'Successes' : 'Total'}
                 </span>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                  Out of {diceCount} dice
+                  {objective === 'target' ? `Out of ${diceCount} dice` : `From ${diceCount} dice`}
                 </p>
               </div>
               <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-                {throwResults.successes}
+                {objective === 'target' ? throwResults.successes : throwResults.total}
               </span>
             </div>
             <p className="text-xs text-zinc-600">

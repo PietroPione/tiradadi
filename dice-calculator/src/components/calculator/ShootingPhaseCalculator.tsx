@@ -7,6 +7,8 @@ type ShootingPhaseCalculatorProps = {
   diceCount: string;
   mode: 'probability' | 'throw';
   ballisticSkill: string;
+  poisonedAttack: boolean;
+  autoHit: boolean;
   hitStrength: string;
   targetToughness: string;
   woundValue: string;
@@ -28,6 +30,8 @@ type ShootingPhaseCalculatorProps = {
   onDiceCountChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
   onBallisticSkillChange: (value: string) => void;
+  onPoisonedAttackChange: (value: boolean) => void;
+  onAutoHitChange: (value: boolean) => void;
   onHitStrengthChange: (value: string) => void;
   onTargetToughnessChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
@@ -43,6 +47,8 @@ export default function ShootingPhaseCalculator({
   diceCount,
   mode,
   ballisticSkill,
+  poisonedAttack,
+  autoHit,
   hitStrength,
   targetToughness,
   woundValue,
@@ -58,6 +64,8 @@ export default function ShootingPhaseCalculator({
   onDiceCountChange,
   onModeChange,
   onBallisticSkillChange,
+  onPoisonedAttackChange,
+  onAutoHitChange,
   onHitStrengthChange,
   onTargetToughnessChange,
   onWoundValueChange,
@@ -96,6 +104,7 @@ export default function ShootingPhaseCalculator({
   };
 
   const resultDisplay = renderResultNeeded();
+  const isPoisonedActive = poisonedAttack && resultNeeded <= 6 && !autoHit;
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
@@ -121,80 +130,132 @@ export default function ShootingPhaseCalculator({
           min="1"
           onChange={onDiceCountChange}
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
-          <InputField
-            id="ballisticSkill"
-            label="Balistic Skill"
-            value={ballisticSkill}
-            min="1"
-            max="10"
-            onChange={onBallisticSkillChange}
-          />
+        {!autoHit ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
+            <InputField
+              id="ballisticSkill"
+              label="Balistic Skill"
+              value={ballisticSkill}
+              min="1"
+              max="10"
+              onChange={onBallisticSkillChange}
+            />
+            <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                Result needed
+              </p>
+              <p className="mt-1 font-mono text-2xl font-bold text-white">
+                {resultDisplay.main}
+              </p>
+              {resultDisplay.sub ? (
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                  {resultDisplay.sub}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
           <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
               Result needed
             </p>
             <p className="mt-1 font-mono text-2xl font-bold text-white">
-              {resultDisplay.main}
+              Auto-hit
             </p>
-            {resultDisplay.sub ? (
-              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                {resultDisplay.sub}
-              </p>
-            ) : null}
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+              All hits succeed
+            </p>
           </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Special rules</p>
+            <div className="mt-3 space-y-3">
+              {!autoHit ? (
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={poisonedAttack}
+                    onChange={(e) => onPoisonedAttackChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Poisoned Attack
+                </label>
+              ) : null}
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={autoHit}
+                  onChange={(e) => onAutoHitChange(e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                Auto-hit
+              </label>
+            </div>
+          </div>
+
+          {!autoHit ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Cover</p>
+              <div className="mt-3 space-y-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={modifiers.lightCover}
+                    onChange={(e) => onModifierChange('lightCover', e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Light cover
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={modifiers.hardCover}
+                    onChange={(e) => onModifierChange('hardCover', e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Hard cover
+                </label>
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Modifiers</p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={modifiers.longRange}
-                onChange={(e) => onModifierChange('longRange', e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Long range
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={modifiers.movement}
-                onChange={(e) => onModifierChange('movement', e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Movement
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={modifiers.skirmisherTarget}
-                onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Skirmisher target
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={modifiers.lightCover}
-                onChange={(e) => onModifierChange('lightCover', e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Light cover
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={modifiers.hardCover}
-                onChange={(e) => onModifierChange('hardCover', e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Hard cover
-            </label>
+        {!autoHit ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Modifiers</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={modifiers.longRange}
+                  onChange={(e) => onModifierChange('longRange', e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                Long range
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={modifiers.movement}
+                  onChange={(e) => onModifierChange('movement', e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                Movement
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={modifiers.skirmisherTarget}
+                  onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                Skirmisher target
+              </label>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
@@ -264,11 +325,11 @@ export default function ShootingPhaseCalculator({
       ) : null}
 
       {isProbability && hasProbabilityResults ? (
-        <ProbabilityResultsCard results={probabilityResults} poisonedAttack={false} />
+        <ProbabilityResultsCard results={probabilityResults} poisonedAttack={isPoisonedActive} />
       ) : null}
 
       {!isProbability && hasThrowResults ? (
-        <ProbabilityResultsCard results={throwResults} poisonedAttack={false} />
+        <ProbabilityResultsCard results={throwResults} poisonedAttack={isPoisonedActive} />
       ) : null}
     </Card>
   );
