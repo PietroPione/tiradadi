@@ -2,6 +2,8 @@ import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
 import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
+import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import DebugPanel from '@/components/ui/DebugPanel';
 
 type ShootingPhaseCalculatorProps = {
   diceCount: string;
@@ -27,6 +29,14 @@ type ShootingPhaseCalculatorProps = {
   throwResults: ProbabilityResults;
   hasProbabilityResults: boolean;
   hasThrowResults: boolean;
+  rerollHitConfig: RerollConfig;
+  rerollWoundConfig: RerollConfig;
+  debug: {
+    hitInitialRolls: number[];
+    hitRerollRolls: number[];
+    woundInitialRolls: number[];
+    woundRerollRolls: number[];
+  };
   onDiceCountChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
   onBallisticSkillChange: (value: string) => void;
@@ -41,6 +51,8 @@ type ShootingPhaseCalculatorProps = {
   onAverageCalculate: () => void;
   onThrowCalculate: () => void;
   onBack: () => void;
+  onRerollHitChange: (config: RerollConfig) => void;
+  onRerollWoundChange: (config: RerollConfig) => void;
 };
 
 export default function ShootingPhaseCalculator({
@@ -61,6 +73,9 @@ export default function ShootingPhaseCalculator({
   throwResults,
   hasProbabilityResults,
   hasThrowResults,
+  rerollHitConfig,
+  rerollWoundConfig,
+  debug,
   onDiceCountChange,
   onModeChange,
   onBallisticSkillChange,
@@ -75,6 +90,8 @@ export default function ShootingPhaseCalculator({
   onAverageCalculate,
   onThrowCalculate,
   onBack,
+  onRerollHitChange,
+  onRerollWoundChange,
 }: ShootingPhaseCalculatorProps) {
   const isProbability = mode === 'probability';
   const renderResultNeeded = () => {
@@ -258,6 +275,13 @@ export default function ShootingPhaseCalculator({
         ) : null}
 
         <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to hit</p>
+          <div className="mt-3">
+            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
+          </div>
+        </div>
+
+        <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
             <InputField
@@ -285,6 +309,13 @@ export default function ShootingPhaseCalculator({
                 onChange={onTargetToughnessChange}
               />
             )}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to wound</p>
+          <div className="mt-3">
+            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
           </div>
         </div>
 
@@ -331,6 +362,15 @@ export default function ShootingPhaseCalculator({
       {!isProbability && hasThrowResults ? (
         <ProbabilityResultsCard results={throwResults} poisonedAttack={isPoisonedActive} />
       ) : null}
+
+      <DebugPanel
+        lines={[
+          { label: 'Hit initial rolls', value: debug.hitInitialRolls.join(', ') || '-' },
+          { label: 'Hit re-rolls', value: debug.hitRerollRolls.join(', ') || '-' },
+          { label: 'Wound initial rolls', value: debug.woundInitialRolls.join(', ') || '-' },
+          { label: 'Wound re-rolls', value: debug.woundRerollRolls.join(', ') || '-' },
+        ]}
+      />
     </Card>
   );
 }

@@ -1,5 +1,7 @@
 import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
+import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import DebugPanel from '@/components/ui/DebugPanel';
 
 type BreakMoraleCheckResults = {
   rolls: number[];
@@ -18,6 +20,12 @@ type BreakMoraleCheckProps = {
   withThreeDice: boolean;
   errorMessage: string;
   results: BreakMoraleCheckResults | null;
+  rerollConfig: RerollConfig;
+  debug: {
+    initialRolls: number[];
+    rerollRolls: number[];
+    finalRolls: number[];
+  };
   onDisciplineChange: (value: string) => void;
   onBonusChange: (value: string) => void;
   onMalusChange: (value: string) => void;
@@ -25,6 +33,7 @@ type BreakMoraleCheckProps = {
   onWithThreeDiceChange: (value: boolean) => void;
   onRoll: () => void;
   onBack: () => void;
+  onRerollChange: (config: RerollConfig) => void;
 };
 
 export default function BreakMoraleCheck({
@@ -35,6 +44,8 @@ export default function BreakMoraleCheck({
   withThreeDice,
   errorMessage,
   results,
+  rerollConfig,
+  debug,
   onDisciplineChange,
   onBonusChange,
   onMalusChange,
@@ -42,6 +53,7 @@ export default function BreakMoraleCheck({
   onWithThreeDiceChange,
   onRoll,
   onBack,
+  onRerollChange,
 }: BreakMoraleCheckProps) {
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
@@ -106,6 +118,7 @@ export default function BreakMoraleCheck({
             </label>
           </div>
         </div>
+        <ReRollOptions config={rerollConfig} onChange={onRerollChange} />
       </div>
 
       <button
@@ -157,6 +170,13 @@ export default function BreakMoraleCheck({
           </div>
         </Card>
       ) : null}
+      <DebugPanel
+        lines={[
+          { label: 'Initial rolls', value: debug.initialRolls.join(', ') || '-' },
+          { label: 'Re-rolls', value: debug.rerollRolls.join(', ') || '-' },
+          { label: 'Final rolls', value: debug.finalRolls.join(', ') || '-' },
+        ]}
+      />
     </Card>
   );
 }

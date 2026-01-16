@@ -1,6 +1,8 @@
 import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
 import ModeSwitch from '@/components/calculator/ModeSwitch';
+import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import DebugPanel from '@/components/ui/DebugPanel';
 
 type GeneralAverageResults = {
   averageSuccesses: number;
@@ -24,6 +26,12 @@ type GeneralThrowCalculatorProps = {
   throwResults: GeneralThrowResults;
   hasAverageResults: boolean;
   hasThrowResults: boolean;
+  rerollConfig: RerollConfig;
+  debug: {
+    initialRolls: number[];
+    rerollRolls: number[];
+    finalRolls: number[];
+  };
   onBack: () => void;
   onDiceCountChange: (value: string) => void;
   onObjectiveChange: (objective: 'target' | 'total') => void;
@@ -31,6 +39,7 @@ type GeneralThrowCalculatorProps = {
   onModeChange: (mode: 'probability' | 'throw') => void;
   onAverageCalculate: () => void;
   onThrowCalculate: () => void;
+  onRerollChange: (config: RerollConfig) => void;
 };
 
 export default function GeneralThrowCalculator({
@@ -43,6 +52,8 @@ export default function GeneralThrowCalculator({
   throwResults,
   hasAverageResults,
   hasThrowResults,
+  rerollConfig,
+  debug,
   onBack,
   onDiceCountChange,
   onObjectiveChange,
@@ -50,6 +61,7 @@ export default function GeneralThrowCalculator({
   onModeChange,
   onAverageCalculate,
   onThrowCalculate,
+  onRerollChange,
 }: GeneralThrowCalculatorProps) {
   const isProbability = mode === 'probability';
 
@@ -113,6 +125,7 @@ export default function GeneralThrowCalculator({
             onChange={onTargetValueChange}
           />
         ) : null}
+        <ReRollOptions config={rerollConfig} onChange={onRerollChange} />
       </div>
 
       <button
@@ -210,6 +223,13 @@ export default function GeneralThrowCalculator({
           </div>
         </Card>
       ) : null}
+      <DebugPanel
+        lines={[
+          { label: 'Initial rolls', value: debug.initialRolls.join(', ') || '-' },
+          { label: 'Re-rolls', value: debug.rerollRolls.join(', ') || '-' },
+          { label: 'Final rolls', value: debug.finalRolls.join(', ') || '-' },
+        ]}
+      />
     </Card>
   );
 }

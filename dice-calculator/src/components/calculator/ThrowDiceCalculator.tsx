@@ -2,6 +2,7 @@ import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
 import ThrowDebugPanel, { type ThrowDebug } from '@/components/calculator/ThrowDebugPanel';
 import ThrowResultsCard, { type ThrowResults } from '@/components/calculator/ThrowResultsCard';
+import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 
 type ThrowDiceCalculatorProps = {
   diceCount: string;
@@ -16,6 +17,8 @@ type ThrowDiceCalculatorProps = {
   hasThrowResults: boolean;
   throwResults: ThrowResults;
   throwDebug: ThrowDebug;
+  rerollHitConfig: RerollConfig;
+  rerollWoundConfig: RerollConfig;
   onDiceCountChange: (value: string) => void;
   onAttackersAcChange: (value: string) => void;
   onDefendersAcChange: (value: string) => void;
@@ -25,6 +28,8 @@ type ThrowDiceCalculatorProps = {
   onThrowWardSaveChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
   onCalculate: () => void;
+  onRerollHitChange: (config: RerollConfig) => void;
+  onRerollWoundChange: (config: RerollConfig) => void;
 };
 
 export default function ThrowDiceCalculator({
@@ -40,6 +45,8 @@ export default function ThrowDiceCalculator({
   hasThrowResults,
   throwResults,
   throwDebug,
+  rerollHitConfig,
+  rerollWoundConfig,
   onDiceCountChange,
   onAttackersAcChange,
   onDefendersAcChange,
@@ -49,6 +56,8 @@ export default function ThrowDiceCalculator({
   onThrowWardSaveChange,
   onPoisonedAttackChange,
   onCalculate,
+  onRerollHitChange,
+  onRerollWoundChange,
 }: ThrowDiceCalculatorProps) {
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
@@ -89,6 +98,9 @@ export default function ThrowDiceCalculator({
             />
             <label htmlFor="poisonedAttackThrow">Poisoned Attack</label>
           </div>
+          <div className="mt-4">
+            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
@@ -107,6 +119,9 @@ export default function ThrowDiceCalculator({
               min="1"
               onChange={onTargetToughnessChange}
             />
+          </div>
+          <div className="mt-4">
+            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
           </div>
         </div>
         <div>

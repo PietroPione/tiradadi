@@ -6,6 +6,8 @@ export interface DiceCalculatorInput {
   woundValue: number;
   armorSave: number;
   wardSave: number;
+  rerollHitConfig?: RerollConfig;
+  rerollWoundConfig?: RerollConfig;
 }
 
 export interface DiceCalculatorOutput {
@@ -17,15 +19,57 @@ export interface DiceCalculatorOutput {
   finalDamage: number;
 }
 
-const getChance = (value: number): number => {
-  if (value <= 1) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, (7 - value) / 6));
+export type RerollConfig = {
+  enabled: boolean;
+  mode: 'failed' | 'success';
+  scope: 'all' | 'specific';
+  specificValues: number[];
 };
 
-const getNonPoisonHitChance = (value: number): number => {
-  return Math.max(0, getChance(value) - 1 / 6);
+const shouldRerollValue = (
+  value: number,
+  target: number,
+  config?: RerollConfig,
+): boolean => {
+  if (!config?.enabled) {
+    return false;
+  }
+  const isSuccess = value >= target;
+  if (config.mode === 'failed' && isSuccess) {
+    return false;
+  }
+  if (config.mode === 'success' && !isSuccess) {
+    return false;
+  }
+  if (config.scope === 'all') {
+    return true;
+  }
+  return config.specificValues.includes(value);
+};
+
+const getFaceProbabilitiesWithReroll = (
+  target: number,
+  config?: RerollConfig,
+) => {
+  let rerollCount = 0;
+  const rerollable = new Set<number>();
+  for (let value = 1; value <= 6; value += 1) {
+    if (shouldRerollValue(value, target, config)) {
+      rerollable.add(value);
+      rerollCount += 1;
+    }
+  }
+  const rerollChance = rerollCount / 6;
+  const probabilities: number[] = [];
+  for (let value = 1; value <= 6; value += 1) {
+    const baseChance = rerollable.has(value) ? 0 : 1 / 6;
+    probabilities[value] = baseChance + rerollChance / 6;
+  }
+  const successChance = probabilities
+    .slice(1)
+    .reduce((sum, chance, index) => sum + (index + 1 >= target ? chance : 0), 0);
+  const sixChance = probabilities[6] ?? 0;
+  return { successChance, sixChance };
 };
 
 export const calculateAverages = ({
@@ -36,19 +80,22 @@ export const calculateAverages = ({
   woundValue,
   armorSave,
   wardSave,
+  rerollHitConfig,
+  rerollWoundConfig,
 }: DiceCalculatorInput): DiceCalculatorOutput => {
-  const poisonedAutoWoundChance = poisonedAttack ? 1 / 6 : 0;
+  const hitProbabilities = getFaceProbabilitiesWithReroll(hitValue, rerollHitConfig);
+  const poisonedAutoWoundChance = poisonedAttack ? hitProbabilities.sixChance : 0;
   const nonPoisonHitChance = poisonedAttack
-    ? getNonPoisonHitChance(hitValue)
-    : getChance(hitValue);
+    ? Math.max(0, hitProbabilities.successChance - hitProbabilities.sixChance)
+    : hitProbabilities.successChance;
   const hitChance = poisonedAttack
     ? poisonedAutoWoundChance + nonPoisonHitChance
     : nonPoisonHitChance;
-  const woundChance = getChance(woundValue);
+  const woundChance = getFaceProbabilitiesWithReroll(woundValue, rerollWoundConfig).successChance;
   const armorSaveModifier = hitStrength - 3;
   const effectiveArmorSave = armorSave + armorSaveModifier;
-  const armorSaveChance = getChance(effectiveArmorSave);
-  const wardSaveChance = getChance(wardSave);
+  const armorSaveChance = getFaceProbabilitiesWithReroll(effectiveArmorSave).successChance;
+  const wardSaveChance = getFaceProbabilitiesWithReroll(wardSave).successChance;
 
   const successfulHits = diceCount * hitChance;
   const autoWounds = diceCount * poisonedAutoWoundChance;

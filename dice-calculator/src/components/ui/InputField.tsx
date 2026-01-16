@@ -7,6 +7,7 @@ type InputFieldProps = {
   type?: string;
   min?: number | string;
   max?: number | string;
+  placeholder?: string;
   onChange: (value: string) => void;
 };
 
@@ -17,6 +18,7 @@ export default function InputField({
   type = 'number',
   min,
   max,
+  placeholder,
   onChange,
 }: InputFieldProps) {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -32,6 +34,7 @@ export default function InputField({
         value={value}
         min={min}
         max={max}
+        placeholder={placeholder}
         onChange={handleChange}
         className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
       />

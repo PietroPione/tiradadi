@@ -4,6 +4,10 @@ export type ThrowDebug = {
   effectiveArmorSave: number;
   poisonedAutoWounds: number;
   nonPoisonHits: number;
+  hitInitialRolls: number[];
+  hitRerollRolls: number[];
+  woundInitialRolls: number[];
+  woundRerollRolls: number[];
   hitRolls: number[];
   woundRolls: number[];
   armorRolls: number[];
@@ -23,8 +27,12 @@ export default function ThrowDebugPanel({ debug, wardSave }: ThrowDebugPanelProp
         <p>Hit Target: <span className="font-mono text-zinc-900">{debug.hitTarget}+</span></p>
         <p>Poisoned Attacks: <span className="font-mono text-zinc-900">{debug.poisonedAutoWounds}</span></p>
         <p>Non-Poison Hits: <span className="font-mono text-zinc-900">{debug.nonPoisonHits}</span></p>
+        <p>Hit Initial Rolls: <span className="font-mono text-zinc-900">{debug.hitInitialRolls.join(', ') || '-'}</span></p>
+        <p>Hit Re-rolls: <span className="font-mono text-zinc-900">{debug.hitRerollRolls.join(', ') || '-'}</span></p>
         <p>Hit Rolls: <span className="font-mono text-zinc-900">{debug.hitRolls.join(', ') || '-'}</span></p>
         <p>Wound Target: <span className="font-mono text-zinc-900">{debug.woundTarget}+</span></p>
+        <p>Wound Initial Rolls: <span className="font-mono text-zinc-900">{debug.woundInitialRolls.join(', ') || '-'}</span></p>
+        <p>Wound Re-rolls: <span className="font-mono text-zinc-900">{debug.woundRerollRolls.join(', ') || '-'}</span></p>
         <p>Wound Rolls: <span className="font-mono text-zinc-900">{debug.woundRolls.join(', ') || '-'}</span></p>
         <p>Armor Save Target: <span className="font-mono text-zinc-900">{debug.effectiveArmorSave}+</span></p>
         <p>Armor Rolls: <span className="font-mono text-zinc-900">{debug.armorRolls.join(', ') || '-'}</span></p>

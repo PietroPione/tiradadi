@@ -8,12 +8,14 @@ import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityCalculator from '@/components/calculator/ProbabilityCalculator';
 import ShootingPhaseCalculator from '@/components/calculator/ShootingPhaseCalculator';
 import ThrowDiceCalculator from '@/components/calculator/ThrowDiceCalculator';
+import type { RerollConfig } from '@/components/calculator/ReRollOptions';
 import PhaseSelector from '@/components/navigation/PhaseSelector';
 import SystemSelector from '@/components/navigation/SystemSelector';
-import { calculateAverages } from '@/lib/dice-calculator';
+import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/dice-calculator';
 
 type GameSystem = 'wfb8';
 type Phase = 'general' | 'shooting' | 'combat' | 'morale';
+type RerollState = RerollConfig;
 
 export default function Home() {
   const [diceCount, setDiceCount] = useState('10');
@@ -50,6 +52,12 @@ export default function Home() {
   const [generalErrorMessage, setGeneralErrorMessage] = useState('');
   const [hasGeneralAverageResults, setHasGeneralAverageResults] = useState(false);
   const [hasGeneralThrowResults, setHasGeneralThrowResults] = useState(false);
+  const [generalReroll, setGeneralReroll] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
   const [ballisticSkill, setBallisticSkill] = useState('3');
   const [shootingModifiers, setShootingModifiers] = useState({
     longRange: false,
@@ -86,6 +94,18 @@ export default function Home() {
   const [shootingErrorMessage, setShootingErrorMessage] = useState('');
   const [hasShootingProbabilityResults, setHasShootingProbabilityResults] = useState(false);
   const [hasShootingThrowResults, setHasShootingThrowResults] = useState(false);
+  const [shootingRerollHit, setShootingRerollHit] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [shootingRerollWound, setShootingRerollWound] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
   const [moraleDiscipline, setMoraleDiscipline] = useState('8');
   const [moraleBonus, setMoraleBonus] = useState('0');
   const [moraleMalus, setMoraleMalus] = useState('0');
@@ -100,6 +120,40 @@ export default function Home() {
     outcome: 'Passed' | 'Failed';
     isDoubleOne: boolean;
   } | null>(null);
+  const [moraleReroll, setMoraleReroll] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [combatRerollHit, setCombatRerollHit] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [combatRerollWound, setCombatRerollWound] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [generalDebug, setGeneralDebug] = useState({
+    initialRolls: [] as number[],
+    rerollRolls: [] as number[],
+    finalRolls: [] as number[],
+  });
+  const [moraleDebug, setMoraleDebug] = useState({
+    initialRolls: [] as number[],
+    rerollRolls: [] as number[],
+    finalRolls: [] as number[],
+  });
+  const [shootingDebug, setShootingDebug] = useState({
+    hitInitialRolls: [] as number[],
+    hitRerollRolls: [] as number[],
+    woundInitialRolls: [] as number[],
+    woundRerollRolls: [] as number[],
+  });
 
   const [results, setResults] = useState({
     successfulHits: 0,
@@ -125,6 +179,10 @@ export default function Home() {
     effectiveArmorSave: 0,
     poisonedAutoWounds: 0,
     nonPoisonHits: 0,
+    hitInitialRolls: [] as number[],
+    hitRerollRolls: [] as number[],
+    woundInitialRolls: [] as number[],
+    woundRerollRolls: [] as number[],
     hitRolls: [] as number[],
     woundRolls: [] as number[],
     armorRolls: [] as number[],
@@ -152,11 +210,120 @@ export default function Home() {
     setPhase(null);
   };
 
-  const getSuccessChance = (target: number) => {
-    if (target <= 1) {
-      return 1;
+  const parseSpecificValues = (input: string) => {
+    return input
+      .split(',')
+      .map((value) => Number.parseInt(value.trim(), 10))
+      .filter((value) => Number.isFinite(value) && value >= 1 && value <= 6);
+  };
+
+  const toDiceRerollConfig = (config: RerollState): DiceRerollConfig => ({
+    enabled: config.enabled,
+    mode: config.mode,
+    scope: config.scope,
+    specificValues: parseSpecificValues(config.specificValues),
+  });
+
+  const shouldRerollValue = (
+    value: number,
+    isSuccess: boolean,
+    config: RerollState,
+    specificValues: Set<number>,
+  ) => {
+    if (!config.enabled) {
+      return false;
     }
-    return Math.max(0, Math.min(1, (7 - target) / 6));
+    if (config.mode === 'failed' && isSuccess) {
+      return false;
+    }
+    if (config.mode === 'success' && !isSuccess) {
+      return false;
+    }
+    if (config.scope === 'all') {
+      return true;
+    }
+    return specificValues.has(value);
+  };
+
+  const applyRerollWithDebug = (
+    rolls: number[],
+    target: number,
+    config: RerollState,
+  ) => {
+    const specificValues = new Set(parseSpecificValues(config.specificValues));
+    const rerollRolls: number[] = [];
+    const finalRolls = rolls.map((roll) => {
+      const isSuccess = roll >= target;
+      if (shouldRerollValue(roll, isSuccess, config, specificValues)) {
+        const reroll = Math.floor(Math.random() * 6) + 1;
+        rerollRolls.push(reroll);
+        return reroll;
+      }
+      return roll;
+    });
+    return { finalRolls, rerollRolls };
+  };
+
+
+  const getFaceProbabilitiesWithReroll = (target: number, config?: RerollState) => {
+    const specificValues = new Set(parseSpecificValues(config?.specificValues ?? ''));
+    let rerollCount = 0;
+    const rerollable = new Set<number>();
+    for (let value = 1; value <= 6; value += 1) {
+      const isSuccess = value >= target;
+      if (config && shouldRerollValue(value, isSuccess, config, specificValues)) {
+        rerollable.add(value);
+        rerollCount += 1;
+      }
+    }
+    const rerollChance = rerollCount / 6;
+    const probabilities: number[] = [];
+    for (let value = 1; value <= 6; value += 1) {
+      const baseChance = rerollable.has(value) ? 0 : 1 / 6;
+      probabilities[value] = baseChance + rerollChance / 6;
+    }
+    const successChance = probabilities
+      .slice(1)
+      .reduce((sum, chance, index) => sum + (index + 1 >= target ? chance : 0), 0);
+    const sixChance = probabilities[6] ?? 0;
+    return { successChance, sixChance, probabilities };
+  };
+
+  const getShootingSuccessChanceWithReroll = (target: number, config: RerollState) => {
+    if (target <= 6) {
+      return getFaceProbabilitiesWithReroll(target, config).successChance;
+    }
+    if (target >= 10) {
+      return 0;
+    }
+    const followUpTarget = target - 3;
+    const followUpChance = Math.max(0, (7 - followUpTarget) / 6);
+    const baseSuccess = (1 / 6) * followUpChance;
+    if (!config.enabled) {
+      return baseSuccess;
+    }
+    const specificValues = new Set(parseSpecificValues(config.specificValues));
+    let rerollChance = 0;
+    if (config.scope === 'all') {
+      rerollChance = config.mode === 'failed' ? 1 - baseSuccess : baseSuccess;
+    } else {
+      if (config.mode === 'failed') {
+        for (let value = 1; value <= 5; value += 1) {
+          if (specificValues.has(value)) {
+            rerollChance += 1 / 6;
+          }
+        }
+        if (specificValues.has(6)) {
+          rerollChance += (1 / 6) * (1 - followUpChance);
+        }
+      } else if (specificValues.has(6)) {
+        rerollChance += (1 / 6) * followUpChance;
+      }
+    }
+    if (config.mode === 'failed') {
+      return baseSuccess + rerollChance * baseSuccess;
+    }
+    return baseSuccess - rerollChance + rerollChance * baseSuccess;
   };
 
   const handleGeneralAverageCalculate = () => {
@@ -174,11 +341,16 @@ export default function Home() {
 
     setGeneralErrorMessage('');
     if (generalObjective === 'target') {
-      const chance = getSuccessChance(parsedTargetValue);
+      const chance = getFaceProbabilitiesWithReroll(parsedTargetValue, generalReroll).successChance;
       const averageSuccesses = parsedDiceCount * chance;
       setGeneralAverageResults({ averageSuccesses, successChance: chance, averageTotal: 0 });
     } else {
-      const averageTotal = parsedDiceCount * 3.5;
+      const rerollTarget = 4;
+      const probabilities = getFaceProbabilitiesWithReroll(rerollTarget, generalReroll).probabilities;
+      const expectedDie = probabilities
+        .slice(1)
+        .reduce((sum, chance, index) => sum + (index + 1) * chance, 0);
+      const averageTotal = parsedDiceCount * expectedDie;
       setGeneralAverageResults({ averageSuccesses: 0, successChance: 0, averageTotal });
     }
     setHasGeneralAverageResults(true);
@@ -198,12 +370,20 @@ export default function Home() {
     }
 
     setGeneralErrorMessage('');
-    const rolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const rerollTarget = generalObjective === 'target' ? parsedTargetValue : 4;
+    const initialRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const rerollResult = applyRerollWithDebug(initialRolls, rerollTarget, generalReroll);
+    const rolls = rerollResult.finalRolls;
     const total = rolls.reduce((sum, roll) => sum + roll, 0);
     const successes = generalObjective === 'target'
       ? rolls.filter((roll) => roll >= parsedTargetValue).length
       : 0;
     setGeneralThrowResults({ successes, rolls, total });
+    setGeneralDebug({
+      initialRolls,
+      rerollRolls: rerollResult.rerollRolls,
+      finalRolls: rolls,
+    });
     setHasGeneralThrowResults(true);
   };
 
@@ -259,11 +439,34 @@ export default function Home() {
       ? parsedDiscipline
       : parsedDiscipline + parsedBonus - parsedMalus;
     const diceCount = moraleWithThreeDice ? 3 : 2;
-    const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
-    const usedRolls = [...rolls].sort((a, b) => a - b).slice(0, 2);
-    const total = usedRolls.reduce((sum, roll) => sum + roll, 0);
-    const isDoubleOne = usedRolls[0] === 1 && usedRolls[1] === 1;
-    const outcome = isDoubleOne || total <= target ? 'Passed' : 'Failed';
+    const initialRolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
+    let rolls = [...initialRolls];
+    let usedRolls = [...rolls].sort((a, b) => a - b).slice(0, 2);
+    let total = usedRolls.reduce((sum, roll) => sum + roll, 0);
+    let isDoubleOne = usedRolls[0] === 1 && usedRolls[1] === 1;
+    let outcome = isDoubleOne || total <= target ? 'Passed' : 'Failed';
+    const rerollRolls: number[] = [];
+
+    if (moraleReroll.enabled) {
+      const shouldRerollCheck = moraleReroll.mode === 'failed'
+        ? outcome === 'Failed'
+        : outcome === 'Passed';
+      if (shouldRerollCheck) {
+        const specificValues = new Set(parseSpecificValues(moraleReroll.specificValues));
+        rolls = rolls.map((roll) => {
+          if (moraleReroll.scope === 'all' || specificValues.has(roll)) {
+            const reroll = Math.floor(Math.random() * 6) + 1;
+            rerollRolls.push(reroll);
+            return reroll;
+          }
+          return roll;
+        });
+        usedRolls = [...rolls].sort((a, b) => a - b).slice(0, 2);
+        total = usedRolls.reduce((sum, roll) => sum + roll, 0);
+        isDoubleOne = usedRolls[0] === 1 && usedRolls[1] === 1;
+        outcome = isDoubleOne || total <= target ? 'Passed' : 'Failed';
+      }
+    }
 
     setMoraleResults({
       rolls,
@@ -273,27 +476,11 @@ export default function Home() {
       outcome,
       isDoubleOne,
     });
-  };
-
-  const getShootingSuccessChance = (target: number) => {
-    if (target <= 1) {
-      return 1;
-    }
-    if (target <= 6) {
-      return Math.max(0, (7 - target) / 6);
-    }
-    if (target >= 10) {
-      return 0;
-    }
-    const followUp = target - 3;
-    return (1 / 6) * Math.max(0, (7 - followUp) / 6);
-  };
-
-  const getStandardChance = (value: number): number => {
-    if (value <= 1) {
-      return 0;
-    }
-    return Math.max(0, Math.min(1, (7 - value) / 6));
+    setMoraleDebug({
+      initialRolls,
+      rerollRolls,
+      finalRolls: rolls,
+    });
   };
 
   const handleShootingAverageCalculate = () => {
@@ -318,16 +505,23 @@ export default function Home() {
     }
 
     setShootingErrorMessage('');
-    const hitChance = shootingAutoHit ? 1 : getShootingSuccessChance(resultNeeded);
-    const poisonedAutoWoundChance = shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit ? 1 / 6 : 0;
+    const hitChance = shootingAutoHit
+      ? 1
+      : getShootingSuccessChanceWithReroll(resultNeeded, shootingRerollHit);
+    const hitProbabilities = resultNeeded <= 6 && !shootingAutoHit
+      ? getFaceProbabilitiesWithReroll(resultNeeded, shootingRerollHit)
+      : null;
+    const poisonedAutoWoundChance = shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit
+      ? hitProbabilities?.sixChance ?? 0
+      : 0;
     const nonPoisonHitChance = poisonedAutoWoundChance > 0
-      ? Math.max(0, hitChance - 1 / 6)
+      ? Math.max(0, hitChance - poisonedAutoWoundChance)
       : hitChance;
-    const woundChance = getStandardChance(parsedWoundValue);
+    const woundChance = getFaceProbabilitiesWithReroll(parsedWoundValue, shootingRerollWound).successChance;
     const armorSaveModifier = parsedHitStrength - 3;
     const effectiveArmorSave = parsedArmorSave + armorSaveModifier;
-    const armorSaveChance = getStandardChance(effectiveArmorSave);
-    const wardSaveChance = getStandardChance(parsedWardSave);
+    const armorSaveChance = getFaceProbabilitiesWithReroll(effectiveArmorSave).successChance;
+    const wardSaveChance = getFaceProbabilitiesWithReroll(parsedWardSave).successChance;
 
     const successfulHits = parsedDiceCount * hitChance;
     const autoWounds = parsedDiceCount * poisonedAutoWoundChance;
@@ -374,6 +568,7 @@ export default function Home() {
     let hitSuccesses = 0;
     let poisonedAutoWounds = 0;
     let nonPoisonHits = 0;
+    let hitRerollRolls: number[] = [];
 
     if (resultNeeded >= 10) {
       setShootingThrowResults({
@@ -384,6 +579,12 @@ export default function Home() {
         failedWardSaves: 0,
         finalDamage: 0,
       });
+      setShootingDebug({
+        hitInitialRolls: rolls,
+        hitRerollRolls: [],
+        woundInitialRolls: [],
+        woundRerollRolls: [],
+      });
       setHasShootingThrowResults(true);
       return;
     }
@@ -391,27 +592,48 @@ export default function Home() {
     if (shootingAutoHit) {
       hitSuccesses = parsedDiceCount;
     } else if (resultNeeded <= 6) {
+      const hitRerollResult = applyRerollWithDebug(rolls, resultNeeded, shootingRerollHit);
+      const rerolledHits = hitRerollResult.finalRolls;
+      hitRerollRolls = hitRerollResult.rerollRolls;
       poisonedAutoWounds = shootingPoisonedAttack
-        ? rolls.filter((roll) => roll === 6).length
+        ? rerolledHits.filter((roll) => roll === 6).length
         : 0;
       nonPoisonHits = shootingPoisonedAttack
-        ? rolls.filter((roll) => roll >= resultNeeded && roll !== 6).length
-        : rolls.filter((roll) => roll >= resultNeeded).length;
+        ? rerolledHits.filter((roll) => roll >= resultNeeded && roll !== 6).length
+        : rerolledHits.filter((roll) => roll >= resultNeeded).length;
       hitSuccesses = poisonedAutoWounds + nonPoisonHits;
     } else {
       const followUpTarget = resultNeeded - 3;
+      const specificValues = new Set(parseSpecificValues(shootingRerollHit.specificValues));
       rolls.forEach((roll) => {
-        if (roll === 6) {
-          const followUpRoll = Math.floor(Math.random() * 6) + 1;
-          if (followUpRoll >= followUpTarget) {
-            hitSuccesses += 1;
-          }
+        let initialRoll = roll;
+        let followUpRoll = 0;
+        if (initialRoll === 6) {
+          followUpRoll = Math.floor(Math.random() * 6) + 1;
+        }
+        let attemptSuccess = initialRoll === 6 && followUpRoll >= followUpTarget;
+        const shouldReroll = shouldRerollValue(
+          initialRoll,
+          attemptSuccess,
+          shootingRerollHit,
+          specificValues,
+        );
+        if (shouldReroll) {
+          initialRoll = Math.floor(Math.random() * 6) + 1;
+          hitRerollRolls.push(initialRoll);
+          followUpRoll = initialRoll === 6 ? Math.floor(Math.random() * 6) + 1 : 0;
+          attemptSuccess = initialRoll === 6 && followUpRoll >= followUpTarget;
+        }
+        if (attemptSuccess) {
+          hitSuccesses += 1;
         }
       });
     }
 
     const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
-    const woundRolls = Array.from({ length: nonPoisonHits || hitSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+    const woundInitialRolls = Array.from({ length: nonPoisonHits || hitSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+    const woundRerollResult = applyRerollWithDebug(woundInitialRolls, woundTarget, shootingRerollWound);
+    const woundRolls = woundRerollResult.finalRolls;
     const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
     const totalWounds = shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit
       ? poisonedAutoWounds + woundSuccesses
@@ -441,6 +663,12 @@ export default function Home() {
       failedArmorSaves,
       failedWardSaves,
       finalDamage: failedWardSaves,
+    });
+    setShootingDebug({
+      hitInitialRolls: rolls,
+      hitRerollRolls,
+      woundInitialRolls,
+      woundRerollRolls: woundRerollResult.rerollRolls,
     });
     setHasShootingThrowResults(true);
   };
@@ -499,7 +727,9 @@ export default function Home() {
 
     setErrorMessage('');
     const hitTarget = getHitTarget(parsedAttackersAc, parsedDefendersAc);
-    const hitRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const hitInitialRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const hitRerollResult = applyRerollWithDebug(hitInitialRolls, hitTarget, combatRerollHit);
+    const hitRolls = hitRerollResult.finalRolls;
     const poisonedAutoWounds = poisonedAttack
       ? hitRolls.filter((roll) => roll === 6).length
       : 0;
@@ -509,7 +739,9 @@ export default function Home() {
     const hitSuccesses = poisonedAutoWounds + nonPoisonHits;
 
     const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
-    const woundRolls = Array.from({ length: nonPoisonHits }, () => Math.floor(Math.random() * 6) + 1);
+    const woundInitialRolls = Array.from({ length: nonPoisonHits }, () => Math.floor(Math.random() * 6) + 1);
+    const woundRerollResult = applyRerollWithDebug(woundInitialRolls, woundTarget, combatRerollWound);
+    const woundRolls = woundRerollResult.finalRolls;
     const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
     const totalWounds = poisonedAttack ? poisonedAutoWounds + woundSuccesses : woundSuccesses;
 
@@ -545,6 +777,10 @@ export default function Home() {
       effectiveArmorSave,
       poisonedAutoWounds,
       nonPoisonHits,
+      hitInitialRolls,
+      hitRerollRolls: hitRerollResult.rerollRolls,
+      woundInitialRolls,
+      woundRerollRolls: woundRerollResult.rerollRolls,
       hitRolls,
       woundRolls,
       armorRolls,
@@ -594,6 +830,8 @@ export default function Home() {
       woundValue: parsedWoundValue,
       armorSave: parsedArmorSave,
       wardSave: parsedWardSave,
+      rerollHitConfig: toDiceRerollConfig(combatRerollHit),
+      rerollWoundConfig: toDiceRerollConfig(combatRerollWound),
     });
     setResults(newResults);
     setHasResults(true);
@@ -629,6 +867,8 @@ export default function Home() {
                 throwResults={generalThrowResults}
                 hasAverageResults={hasGeneralAverageResults}
                 hasThrowResults={hasGeneralThrowResults}
+                rerollConfig={generalReroll}
+                debug={generalDebug}
                 onBack={handlePhaseBack}
                 onDiceCountChange={setGeneralDiceCount}
                 onObjectiveChange={setGeneralObjective}
@@ -636,6 +876,7 @@ export default function Home() {
                 onModeChange={setGeneralMode}
                 onAverageCalculate={handleGeneralAverageCalculate}
                 onThrowCalculate={handleGeneralThrowCalculate}
+                onRerollChange={setGeneralReroll}
               />
             ) : phase === 'shooting' ? (
               <ShootingPhaseCalculator
@@ -656,6 +897,9 @@ export default function Home() {
                 throwResults={shootingThrowResults}
                 hasProbabilityResults={hasShootingProbabilityResults}
                 hasThrowResults={hasShootingThrowResults}
+                rerollHitConfig={shootingRerollHit}
+                rerollWoundConfig={shootingRerollWound}
+                debug={shootingDebug}
                 onDiceCountChange={setShootingDiceCount}
                 onModeChange={setShootingMode}
                 onBallisticSkillChange={setBallisticSkill}
@@ -670,6 +914,8 @@ export default function Home() {
                 onAverageCalculate={handleShootingAverageCalculate}
                 onThrowCalculate={handleShootingThrowCalculate}
                 onBack={handlePhaseBack}
+                onRerollHitChange={setShootingRerollHit}
+                onRerollWoundChange={setShootingRerollWound}
               />
             ) : phase === 'morale' ? (
               <BreakMoraleCheck
@@ -680,6 +926,8 @@ export default function Home() {
                 withThreeDice={moraleWithThreeDice}
                 errorMessage={moraleErrorMessage}
                 results={moraleResults}
+                rerollConfig={moraleReroll}
+                debug={moraleDebug}
                 onDisciplineChange={setMoraleDiscipline}
                 onBonusChange={setMoraleBonus}
                 onMalusChange={setMoraleMalus}
@@ -687,6 +935,7 @@ export default function Home() {
                 onWithThreeDiceChange={setMoraleWithThreeDice}
                 onRoll={handleMoraleRoll}
                 onBack={handlePhaseBack}
+                onRerollChange={setMoraleReroll}
               />
             ) : (
               <>
@@ -709,6 +958,8 @@ export default function Home() {
                     wardSave={wardSave}
                     errorMessage={errorMessage}
                     results={results}
+                    rerollHitConfig={combatRerollHit}
+                    rerollWoundConfig={combatRerollWound}
                     onDiceCountChange={setDiceCount}
                     onHitValueChange={setHitValue}
                     onPoisonedAttackChange={setPoisonedAttack}
@@ -717,6 +968,8 @@ export default function Home() {
                     onArmorSaveChange={setArmorSave}
                     onWardSaveChange={setWardSave}
                     onCalculate={handleCalculate}
+                    onRerollHitChange={setCombatRerollHit}
+                    onRerollWoundChange={setCombatRerollWound}
                   />
                 ) : (
                   <ThrowDiceCalculator
@@ -732,6 +985,8 @@ export default function Home() {
                     hasThrowResults={hasThrowResults}
                     throwResults={throwResults}
                     throwDebug={throwDebug}
+                    rerollHitConfig={combatRerollHit}
+                    rerollWoundConfig={combatRerollWound}
                     onDiceCountChange={setDiceCount}
                     onAttackersAcChange={setAttackersAc}
                     onDefendersAcChange={setDefendersAc}
@@ -741,6 +996,8 @@ export default function Home() {
                     onThrowWardSaveChange={setThrowWardSave}
                     onPoisonedAttackChange={setPoisonedAttack}
                     onCalculate={handleThrowCalculate}
+                    onRerollHitChange={setCombatRerollHit}
+                    onRerollWoundChange={setCombatRerollWound}
                   />
                 )}
               </>

@@ -1,6 +1,8 @@
 import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
 import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
+import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import DebugPanel from '@/components/ui/DebugPanel';
 
 type ProbabilityCalculatorProps = {
   diceCount: string;
@@ -12,6 +14,8 @@ type ProbabilityCalculatorProps = {
   wardSave: string;
   errorMessage: string;
   results: ProbabilityResults;
+  rerollHitConfig: RerollConfig;
+  rerollWoundConfig: RerollConfig;
   onDiceCountChange: (value: string) => void;
   onHitValueChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
@@ -20,6 +24,8 @@ type ProbabilityCalculatorProps = {
   onArmorSaveChange: (value: string) => void;
   onWardSaveChange: (value: string) => void;
   onCalculate: () => void;
+  onRerollHitChange: (config: RerollConfig) => void;
+  onRerollWoundChange: (config: RerollConfig) => void;
 };
 
 export default function ProbabilityCalculator({
@@ -32,6 +38,8 @@ export default function ProbabilityCalculator({
   wardSave,
   errorMessage,
   results,
+  rerollHitConfig,
+  rerollWoundConfig,
   onDiceCountChange,
   onHitValueChange,
   onPoisonedAttackChange,
@@ -40,9 +48,12 @@ export default function ProbabilityCalculator({
   onArmorSaveChange,
   onWardSaveChange,
   onCalculate,
+  onRerollHitChange,
+  onRerollWoundChange,
 }: ProbabilityCalculatorProps) {
   return (
-    <Card className="px-4 py-5 sm:px-6 sm:py-6">
+    <>
+      <Card className="px-4 py-5 sm:px-6 sm:py-6">
       <h2 className="text-lg font-semibold text-zinc-900">Probability calculator</h2>
       <div className="mt-4 space-y-5">
         <InputField
@@ -76,6 +87,9 @@ export default function ProbabilityCalculator({
               </div>
             </div>
           </div>
+          <div className="mt-4">
+            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
@@ -96,6 +110,9 @@ export default function ProbabilityCalculator({
               max="7"
               onChange={onWoundValueChange}
             />
+          </div>
+          <div className="mt-4">
+            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
           </div>
         </div>
         <div>
@@ -133,7 +150,14 @@ export default function ProbabilityCalculator({
         </p>
       ) : null}
 
-      <ProbabilityResultsCard results={results} poisonedAttack={poisonedAttack} />
-    </Card>
+        <ProbabilityResultsCard results={results} poisonedAttack={poisonedAttack} />
+      </Card>
+      <DebugPanel
+        lines={[
+          { label: 'Initial rolls', value: '-' },
+          { label: 'Re-rolls', value: '-' },
+        ]}
+      />
+    </>
   );
 }
