@@ -444,7 +444,7 @@ export default function Home() {
     let usedRolls = [...rolls].sort((a, b) => a - b).slice(0, 2);
     let total = usedRolls.reduce((sum, roll) => sum + roll, 0);
     let isDoubleOne = usedRolls[0] === 1 && usedRolls[1] === 1;
-    let outcome = isDoubleOne || total <= target ? 'Passed' : 'Failed';
+    let outcome: 'Passed' | 'Failed' = isDoubleOne || total <= target ? 'Passed' : 'Failed';
     const rerollRolls: number[] = [];
 
     if (moraleReroll.enabled) {
