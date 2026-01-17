@@ -3,19 +3,19 @@ import Card from '@/components/ui/Card';
 type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'tc-generic' | 'tc-injury';
 type GameSystem = 'wfb8' | 'trech';
 
-type PhaseSelectorProps = {
+type NewUiPhaseSelectorProps = {
   systemLabel: string;
   systemKey: GameSystem;
   onSelect: (phase: Phase) => void;
   onBack: () => void;
 };
 
-export default function PhaseSelector({
+export default function NewUiPhaseSelector({
   systemLabel,
   systemKey,
   onSelect,
   onBack,
-}: PhaseSelectorProps) {
+}: NewUiPhaseSelectorProps) {
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">

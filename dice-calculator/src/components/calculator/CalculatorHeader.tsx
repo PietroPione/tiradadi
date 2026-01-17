@@ -4,9 +4,15 @@ type CalculatorHeaderProps = {
   mode: 'probability' | 'throw';
   hasResults: boolean;
   finalDamage: number;
+  onHome?: () => void;
 };
 
-export default function CalculatorHeader({ mode, hasResults, finalDamage }: CalculatorHeaderProps) {
+export default function CalculatorHeader({
+  mode,
+  hasResults,
+  finalDamage,
+  onHome,
+}: CalculatorHeaderProps) {
   return (
     <div className="flex flex-col gap-4 border-b-2 border-zinc-900 px-6 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-8">
       <div>
@@ -14,7 +20,17 @@ export default function CalculatorHeader({ mode, hasResults, finalDamage }: Calc
           Mathammer
         </p>
         <h1 className="mt-2 text-3xl font-bold text-zinc-900 sm:text-4xl">
-          Never use a dice anymore!
+          {onHome ? (
+            <button
+              type="button"
+              onClick={onHome}
+              className="bg-transparent p-0 text-left text-zinc-900"
+            >
+              Never use a dice anymore!
+            </button>
+          ) : (
+            'Never use a dice anymore!'
+          )}
         </h1>
       </div>
       {mode === 'probability' && hasResults ? (
