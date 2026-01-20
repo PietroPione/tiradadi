@@ -27,6 +27,8 @@ type NewUiShootingWizardProps = {
   wardSave: string;
   rerollHitConfig: RerollConfig;
   rerollWoundConfig: RerollConfig;
+  rerollArmorConfig: RerollConfig;
+  rerollWardConfig: RerollConfig;
   onNext: () => void;
   onBack: () => void;
   onCalculate: () => void;
@@ -42,6 +44,8 @@ type NewUiShootingWizardProps = {
   onWardSaveChange: (value: string) => void;
   onRerollHitChange: (config: RerollConfig) => void;
   onRerollWoundChange: (config: RerollConfig) => void;
+  onRerollArmorChange: (config: RerollConfig) => void;
+  onRerollWardChange: (config: RerollConfig) => void;
 };
 
 const steps = [
@@ -84,6 +88,8 @@ export default function NewUiShootingWizard({
   wardSave,
   rerollHitConfig,
   rerollWoundConfig,
+  rerollArmorConfig,
+  rerollWardConfig,
   onNext,
   onBack,
   onCalculate,
@@ -99,6 +105,8 @@ export default function NewUiShootingWizard({
   onWardSaveChange,
   onRerollHitChange,
   onRerollWoundChange,
+  onRerollArmorChange,
+  onRerollWardChange,
 }: NewUiShootingWizardProps) {
   const isLast = step === steps.length - 1;
   const resultDisplay = renderResultNeeded(resultNeeded, autoHit);
@@ -255,22 +263,29 @@ export default function NewUiShootingWizard({
 
         {step === 4 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="newShootingArmorSave"
-              label="Armor Save (X+)"
-              value={armorSave}
-              min="1"
-              max="7"
-              onChange={onArmorSaveChange}
-            />
-            <InputField
-              id="newShootingWardSave"
-              label="Ward Save (X+)"
-              value={wardSave}
-              min="0"
-              max="7"
-              onChange={onWardSaveChange}
-            />
+            <div className="space-y-3">
+              <InputField
+                id="newShootingArmorSave"
+                label="Armor Save (X+)"
+                value={armorSave}
+                min="1"
+                max="7"
+                onChange={onArmorSaveChange}
+              />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+            </div>
+            <div className="space-y-3">
+              <InputField
+                id="newShootingWardSave"
+                label="Ward Save (X+)"
+                value={wardSave}
+                min="0"
+                max="7"
+                placeholder="Leave empty if none"
+                onChange={onWardSaveChange}
+              />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+            </div>
           </div>
         ) : null}
       </div>

@@ -3,6 +3,17 @@ import InputField from '@/components/ui/InputField';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 
+const formatRerollLabel = (config: RerollConfig) => {
+  if (!config.enabled) {
+    return 'Off';
+  }
+  const base = `${config.mode} / ${config.scope}`;
+  if (config.scope === 'specific' && config.specificValues.trim()) {
+    return `${base} (${config.specificValues})`;
+  }
+  return base;
+};
+
 type BreakMoraleCheckResults = {
   rolls: number[];
   usedRolls: number[];
@@ -172,6 +183,12 @@ export default function BreakMoraleCheck({
       ) : null}
       <DebugPanel
         lines={[
+          { label: 'Discipline', value: discipline || '-' },
+          { label: 'Bonus', value: bonus || '-' },
+          { label: 'Malus', value: malus || '-' },
+          { label: 'Stubborn', value: stubborn ? 'Yes' : 'No' },
+          { label: 'With three dice', value: withThreeDice ? 'Yes' : 'No' },
+          { label: 'Re-roll', value: formatRerollLabel(rerollConfig) },
           { label: 'Initial rolls', value: debug.initialRolls.join(', ') || '-' },
           { label: 'Re-rolls', value: debug.rerollRolls.join(', ') || '-' },
           { label: 'Final rolls', value: debug.finalRolls.join(', ') || '-' },

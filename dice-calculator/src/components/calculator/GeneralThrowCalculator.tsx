@@ -4,6 +4,17 @@ import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 
+const formatRerollLabel = (config: RerollConfig) => {
+  if (!config.enabled) {
+    return 'Off';
+  }
+  const base = `${config.mode} / ${config.scope}`;
+  if (config.scope === 'specific' && config.specificValues.trim()) {
+    return `${base} (${config.specificValues})`;
+  }
+  return base;
+};
+
 type GeneralAverageResults = {
   averageSuccesses: number;
   successChance: number;
@@ -225,6 +236,11 @@ export default function GeneralThrowCalculator({
       ) : null}
       <DebugPanel
         lines={[
+          { label: 'Mode', value: mode === 'probability' ? 'Probability' : 'Throw' },
+          { label: 'Dice count', value: diceCount || '-' },
+          { label: 'Objective', value: objective === 'target' ? 'Target value' : 'Total throw' },
+          { label: 'Target', value: objective === 'target' ? `${targetValue}+` : '-' },
+          { label: 'Re-roll', value: formatRerollLabel(rerollConfig) },
           { label: 'Initial rolls', value: debug.initialRolls.join(', ') || '-' },
           { label: 'Re-rolls', value: debug.rerollRolls.join(', ') || '-' },
           { label: 'Final rolls', value: debug.finalRolls.join(', ') || '-' },

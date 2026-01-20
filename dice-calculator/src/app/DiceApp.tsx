@@ -8,25 +8,13 @@ import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityCalculator from '@/components/calculator/ProbabilityCalculator';
 import ShootingPhaseCalculator from '@/components/calculator/ShootingPhaseCalculator';
 import ThrowDiceCalculator from '@/components/calculator/ThrowDiceCalculator';
+import ChallengeSimulator from '@/components/calculator/ChallengeSimulator';
 import type { RerollConfig } from '@/components/calculator/ReRollOptions';
-import ProbabilityResultsCard from '@/components/calculator/ProbabilityResultsCard';
-import ThrowResultsCard from '@/components/calculator/ThrowResultsCard';
-import Card from '@/components/ui/Card';
-import NewUiCombatWizard from '@/components/new-ui/NewUiCombatWizard';
-import NewUiGeneralWizard from '@/components/new-ui/NewUiGeneralWizard';
-import NewUiMoraleWizard from '@/components/new-ui/NewUiMoraleWizard';
-import NewUiShootingWizard from '@/components/new-ui/NewUiShootingWizard';
-import NewUiSummary from '@/components/new-ui/NewUiSummary';
-import NewUiModeSelector from '@/components/new-ui/NewUiModeSelector';
-import NewUiPhaseSelector from '@/components/navigation/NewUiPhaseSelector';
 import PhaseSelector from '@/components/navigation/PhaseSelector';
 import SystemSelector from '@/components/navigation/SystemSelector';
-import UiModeSelector from '@/components/navigation/UiModeSelector';
 import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/dice-calculator';
 import TrechGenericRollCalculator from '@/components/calculator/TrechGenericRollCalculator';
-import NewUiTrechGenericWizard from '@/components/new-ui/NewUiTrechGenericWizard';
 import TrechInjuryRollCalculator from '@/components/calculator/TrechInjuryRollCalculator';
-import NewUiTrechInjuryWizard from '@/components/new-ui/NewUiTrechInjuryWizard';
 import {
   applyRerollWithDebug,
   getFaceProbabilitiesWithReroll,
@@ -38,13 +26,10 @@ import {
 } from '@/lib/roll-utils';
 
 type GameSystem = 'wfb8' | 'trech';
-type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'tc-generic' | 'tc-injury';
+type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'challenge' | 'tc-generic' | 'tc-injury';
 type RerollState = RerollConfig;
-type UiMode = 'classic' | 'new';
-type NewUiPhase = 'general' | 'shooting' | 'combat' | 'morale' | 'tc-generic' | 'tc-injury';
 
 export default function DiceApp() {
-  const [uiMode, setUiMode] = useState<UiMode | null>(null);
   const [diceCount, setDiceCount] = useState('10');
   const [mode, setMode] = useState<'probability' | 'throw'>('probability');
   const [attackersAc, setAttackersAc] = useState('1');
@@ -55,6 +40,10 @@ export default function DiceApp() {
   const [throwWardSave, setThrowWardSave] = useState('0');
   const [hitValue, setHitValue] = useState('4');
   const [poisonedAttack, setPoisonedAttack] = useState(false);
+  const [predatoryFighter, setPredatoryFighter] = useState(false);
+  const [predatoryFighterCount, setPredatoryFighterCount] = useState('0');
+  const [multipleWoundsEnabled, setMultipleWoundsEnabled] = useState(false);
+  const [multipleWoundsValue, setMultipleWoundsValue] = useState('');
   const [hitStrength, setHitStrength] = useState('3');
   const [woundValue, setWoundValue] = useState('4');
   const [armorSave, setArmorSave] = useState('4');
@@ -62,9 +51,6 @@ export default function DiceApp() {
   const [errorMessage, setErrorMessage] = useState('');
   const [gameSystem, setGameSystem] = useState<GameSystem | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
-  const [newUiPhase, setNewUiPhase] = useState<NewUiPhase | null>(null);
-  const [newUiStep, setNewUiStep] = useState(0);
-  const [newUiView, setNewUiView] = useState<'mode' | 'wizard' | 'summary'>('mode');
   const [generalMode, setGeneralMode] = useState<'probability' | 'throw'>('probability');
   const [generalDiceCount, setGeneralDiceCount] = useState('10');
   const [generalObjective, setGeneralObjective] = useState<'target' | 'total'>('target');
@@ -98,6 +84,8 @@ export default function DiceApp() {
   });
   const [shootingPoisonedAttack, setShootingPoisonedAttack] = useState(false);
   const [shootingAutoHit, setShootingAutoHit] = useState(false);
+  const [shootingMultipleWoundsEnabled, setShootingMultipleWoundsEnabled] = useState(false);
+  const [shootingMultipleWoundsValue, setShootingMultipleWoundsValue] = useState('');
   const [shootingMode, setShootingMode] = useState<'probability' | 'throw'>('probability');
   const [shootingDiceCount, setShootingDiceCount] = useState('10');
   const [shootingHitStrength, setShootingHitStrength] = useState('3');
@@ -131,6 +119,18 @@ export default function DiceApp() {
     specificValues: '',
   });
   const [shootingRerollWound, setShootingRerollWound] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [shootingRerollArmor, setShootingRerollArmor] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [shootingRerollWard, setShootingRerollWard] = useState<RerollState>({
     enabled: false,
     mode: 'failed',
     scope: 'all',
@@ -202,6 +202,18 @@ export default function DiceApp() {
     scope: 'all',
     specificValues: '',
   });
+  const [combatRerollArmor, setCombatRerollArmor] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [combatRerollWard, setCombatRerollWard] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
   const [generalDebug, setGeneralDebug] = useState({
     initialRolls: [] as number[],
     rerollRolls: [] as number[],
@@ -217,6 +229,11 @@ export default function DiceApp() {
     hitRerollRolls: [] as number[],
     woundInitialRolls: [] as number[],
     woundRerollRolls: [] as number[],
+    armorInitialRolls: [] as number[],
+    armorRerollRolls: [] as number[],
+    wardInitialRolls: [] as number[],
+    wardRerollRolls: [] as number[],
+    multipleWoundsRolls: [] as number[],
   });
 
   const [results, setResults] = useState({
@@ -243,6 +260,9 @@ export default function DiceApp() {
     effectiveArmorSave: 0,
     poisonedAutoWounds: 0,
     nonPoisonHits: 0,
+    predatoryCount: 0,
+    predatorySixes: 0,
+    totalAttacks: 0,
     hitInitialRolls: [] as number[],
     hitRerollRolls: [] as number[],
     woundInitialRolls: [] as number[],
@@ -250,48 +270,28 @@ export default function DiceApp() {
     hitRolls: [] as number[],
     woundRolls: [] as number[],
     armorRolls: [] as number[],
+    armorRerollRolls: [] as number[],
     wardRolls: [] as number[],
+    wardRerollRolls: [] as number[],
+    multipleWoundsRolls: [] as number[],
   });
   const [hasThrowResults, setHasThrowResults] = useState(false);
 
   const systemLabel = gameSystem === 'trech' ? 'Trench Crusade' : 'Warhammer Fantasy 8th';
 
-  const phaseUsesModeSelect = (phaseValue: NewUiPhase | null) => {
-    return phaseValue === 'general' || phaseValue === 'combat' || phaseValue === 'shooting';
-  };
-
   const handleHome = () => {
-    setUiMode(null);
     setGameSystem(null);
     setPhase(null);
-    setNewUiPhase(null);
-    setNewUiStep(0);
-    setNewUiView('mode');
-  };
-
-  const handleUiModeSelect = (selected: UiMode) => {
-    setUiMode(selected);
-    setGameSystem(null);
-    setPhase(null);
-    setNewUiPhase(null);
-    setNewUiStep(0);
-    setNewUiView('mode');
   };
 
   const handleSystemSelect = (system: GameSystem) => {
     setGameSystem(system);
     setPhase(null);
-    setNewUiPhase(null);
-    setNewUiStep(0);
-    setNewUiView('mode');
   };
 
   const handleSystemBack = () => {
     setGameSystem(null);
     setPhase(null);
-    setNewUiPhase(null);
-    setNewUiStep(0);
-    setNewUiView('mode');
   };
 
   const handlePhaseSelect = (nextPhase: Phase) => {
@@ -302,35 +302,23 @@ export default function DiceApp() {
     setPhase(null);
   };
 
-  const handleNewUiPhaseSelect = (nextPhase: NewUiPhase) => {
-    setNewUiPhase(nextPhase);
-    setNewUiStep(0);
-    setNewUiView(phaseUsesModeSelect(nextPhase) ? 'mode' : 'wizard');
-  };
-
-  const handleNewUiBack = () => {
-    if (newUiView === 'summary') {
-      setNewUiView('wizard');
-      setNewUiStep(0);
-      return;
+  const parseMultipleWoundsValue = (rawValue: string) => {
+    const value = rawValue.trim();
+    if (!value) {
+      return null;
     }
-    if (newUiView === 'mode') {
-      setNewUiPhase(null);
-      return;
-    }
-    if (newUiStep === 0) {
-      if (phaseUsesModeSelect(newUiPhase)) {
-        setNewUiView('mode');
-      } else {
-        setNewUiPhase(null);
+    if (value.toLowerCase().startsWith('d')) {
+      const sides = Number.parseInt(value.slice(1), 10);
+      if (Number.isNaN(sides) || sides < 2) {
+        return null;
       }
-      return;
+      return { type: 'dice' as const, sides };
     }
-    setNewUiStep((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleNewUiNext = () => {
-    setNewUiStep((prev) => Math.min(4, prev + 1));
+    const fixed = Number.parseInt(value, 10);
+    if (Number.isNaN(fixed) || fixed <= 0) {
+      return null;
+    }
+    return { type: 'fixed' as const, value: fixed };
   };
 
   const toDiceRerollConfig = (config: RerollState): DiceRerollConfig => ({
@@ -610,74 +598,18 @@ export default function DiceApp() {
     setTrechInjuryDebug({ rolls, selectedRolls });
   };
 
-  const formatRerollLabel = (config: RerollState) => {
-    if (!config.enabled) {
-      return 'Off';
-    }
-    const base = `${config.mode} / ${config.scope}`;
-    if (config.scope === 'specific' && config.specificValues.trim()) {
-      return `${base} (${config.specificValues})`;
-    }
-    return base;
-  };
-
-  const handleNewUiCalculate = () => {
-    if (newUiPhase === 'combat') {
-      if (mode === 'probability') {
-        handleCalculate();
-      } else {
-        handleThrowCalculate();
-      }
-    } else if (newUiPhase === 'general') {
-      if (generalMode === 'probability') {
-        handleGeneralAverageCalculate();
-      } else {
-        handleGeneralThrowCalculate();
-      }
-    } else if (newUiPhase === 'shooting') {
-      if (shootingMode === 'probability') {
-        handleShootingAverageCalculate();
-      } else {
-        handleShootingThrowCalculate();
-      }
-    } else if (newUiPhase === 'morale') {
-      handleMoraleRoll();
-    } else if (newUiPhase === 'tc-generic') {
-      handleTrechGenericRoll();
-    } else if (newUiPhase === 'tc-injury') {
-      handleTrechInjuryRoll();
-    }
-    setNewUiView('summary');
-  };
-
-  const handleNewUiModeSelect = (selected: 'probability' | 'throw') => {
-    if (newUiPhase === 'combat') {
-      setMode(selected);
-    } else if (newUiPhase === 'shooting') {
-      setShootingMode(selected);
-    } else if (newUiPhase === 'general') {
-      setGeneralMode(selected);
-    }
-    setNewUiStep(0);
-    setNewUiView('wizard');
-  };
-
-  const handleNewUiBackToStart = () => {
-    setNewUiStep(0);
-    setNewUiView('wizard');
-  };
-
-  const handleNewUiReroll = () => {
-    handleNewUiCalculate();
-  };
-
   const handleShootingAverageCalculate = () => {
     const parsedDiceCount = Number.parseInt(shootingDiceCount, 10);
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedWoundValue = Number.parseInt(shootingWoundValue, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
-    const parsedWardSave = Number.parseInt(shootingWardSave, 10);
+    const parsedWardSave = shootingWardSave.trim() === ''
+      ? 0
+      : Number.parseInt(shootingWardSave, 10);
     const resultNeeded = getShootingResultNeeded();
+    const parsedMultipleWounds = shootingMultipleWoundsEnabled
+      ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
+      : null;
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -686,7 +618,8 @@ export default function DiceApp() {
       Number.isNaN(parsedWoundValue) ||
       Number.isNaN(parsedArmorSave) ||
       Number.isNaN(parsedWardSave) ||
-      Number.isNaN(resultNeeded)
+      Number.isNaN(resultNeeded) ||
+      (shootingMultipleWoundsEnabled && !parsedMultipleWounds)
     ) {
       setShootingErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -708,8 +641,12 @@ export default function DiceApp() {
     const woundChance = getFaceProbabilitiesWithReroll(parsedWoundValue, shootingRerollWound).successChance;
     const armorSaveModifier = parsedHitStrength - 3;
     const effectiveArmorSave = parsedArmorSave + armorSaveModifier;
-    const armorSaveChance = getFaceProbabilitiesWithReroll(effectiveArmorSave).successChance;
-    const wardSaveChance = getFaceProbabilitiesWithReroll(parsedWardSave).successChance;
+    const armorSaveChance = effectiveArmorSave > 1
+      ? getFaceProbabilitiesWithReroll(effectiveArmorSave, shootingRerollArmor).successChance
+      : 0;
+    const wardSaveChance = parsedWardSave > 1
+      ? getFaceProbabilitiesWithReroll(parsedWardSave, shootingRerollWard).successChance
+      : 0;
 
     const successfulHits = parsedDiceCount * hitChance;
     const autoWounds = parsedDiceCount * poisonedAutoWoundChance;
@@ -717,7 +654,12 @@ export default function DiceApp() {
     const successfulWounds = autoWounds + hitsToWound * woundChance;
     const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
     const failedWardSaves = failedArmorSaves * (1 - wardSaveChance);
-    const finalDamage = failedWardSaves;
+    const multipleWoundsMultiplier = parsedMultipleWounds
+      ? (parsedMultipleWounds.type === 'dice'
+        ? (parsedMultipleWounds.sides + 1) / 2
+        : parsedMultipleWounds.value)
+      : 1;
+    const finalDamage = failedWardSaves * multipleWoundsMultiplier;
 
     setShootingProbabilityResults({
       successfulHits: parseFloat(successfulHits.toFixed(2)),
@@ -727,6 +669,17 @@ export default function DiceApp() {
       failedWardSaves: parseFloat(failedWardSaves.toFixed(2)),
       finalDamage: parseFloat(finalDamage.toFixed(2)),
     });
+    setShootingDebug({
+      hitInitialRolls: [],
+      hitRerollRolls: [],
+      woundInitialRolls: [],
+      woundRerollRolls: [],
+      armorInitialRolls: [],
+      armorRerollRolls: [],
+      wardInitialRolls: [],
+      wardRerollRolls: [],
+      multipleWoundsRolls: [],
+    });
     setHasShootingProbabilityResults(true);
   };
 
@@ -735,8 +688,13 @@ export default function DiceApp() {
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
-    const parsedWardSave = Number.parseInt(shootingWardSave, 10);
+    const parsedWardSave = shootingWardSave.trim() === ''
+      ? 0
+      : Number.parseInt(shootingWardSave, 10);
     const resultNeeded = getShootingResultNeeded();
+    const parsedMultipleWounds = shootingMultipleWoundsEnabled
+      ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
+      : null;
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -745,7 +703,8 @@ export default function DiceApp() {
       Number.isNaN(parsedTargetToughness) ||
       Number.isNaN(parsedArmorSave) ||
       Number.isNaN(parsedWardSave) ||
-      Number.isNaN(resultNeeded)
+      Number.isNaN(resultNeeded) ||
+      (shootingMultipleWoundsEnabled && !parsedMultipleWounds)
     ) {
       setShootingErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -772,6 +731,11 @@ export default function DiceApp() {
         hitRerollRolls: [],
         woundInitialRolls: [],
         woundRerollRolls: [],
+        armorInitialRolls: [],
+        armorRerollRolls: [],
+        wardInitialRolls: [],
+        wardRerollRolls: [],
+        multipleWoundsRolls: [],
       });
       setHasShootingThrowResults(true);
       return;
@@ -830,18 +794,39 @@ export default function DiceApp() {
     const effectiveArmorSave = parsedArmorSave + (parsedHitStrength - 3);
     let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
+    let armorInitialRolls: number[] = [];
+    let armorRerollRolls: number[] = [];
     if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
-      armorRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
+      armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
+      const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, shootingRerollArmor);
+      armorRerollRolls = armorRerollResult.rerollRolls;
+      armorRolls = armorRerollResult.finalRolls;
       const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
       failedArmorSaves = totalWounds - armorSuccesses;
     }
 
     let failedWardSaves = failedArmorSaves;
     let wardRolls: number[] = [];
+    let wardInitialRolls: number[] = [];
+    let wardRerollRolls: number[] = [];
     if (parsedWardSave > 1 && parsedWardSave <= 6) {
-      wardRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
+      wardInitialRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
+      const wardRerollResult = applyRerollWithDebug(wardInitialRolls, parsedWardSave, shootingRerollWard);
+      wardRerollRolls = wardRerollResult.rerollRolls;
+      wardRolls = wardRerollResult.finalRolls;
       const wardSuccesses = wardRolls.filter((roll) => roll >= parsedWardSave).length;
       failedWardSaves = failedArmorSaves - wardSuccesses;
+    }
+
+    let finalDamage = failedWardSaves;
+    let multipleWoundsRolls: number[] = [];
+    if (parsedMultipleWounds) {
+      if (parsedMultipleWounds.type === 'fixed') {
+        finalDamage = failedWardSaves * parsedMultipleWounds.value;
+      } else {
+        multipleWoundsRolls = Array.from({ length: failedWardSaves }, () => Math.floor(Math.random() * parsedMultipleWounds.sides) + 1);
+        finalDamage = multipleWoundsRolls.reduce((sum, roll) => sum + roll, 0);
+      }
     }
 
     setShootingThrowResults({
@@ -850,13 +835,18 @@ export default function DiceApp() {
       poisonedAutoWounds: shootingPoisonedAttack && resultNeeded <= 6 && !shootingAutoHit ? poisonedAutoWounds : 0,
       failedArmorSaves,
       failedWardSaves,
-      finalDamage: failedWardSaves,
+      finalDamage,
     });
     setShootingDebug({
       hitInitialRolls: rolls,
       hitRerollRolls,
       woundInitialRolls,
       woundRerollRolls: woundRerollResult.rerollRolls,
+      armorInitialRolls,
+      armorRerollRolls,
+      wardInitialRolls,
+      wardRerollRolls,
+      multipleWoundsRolls,
     });
     setHasShootingThrowResults(true);
   };
@@ -868,7 +858,15 @@ export default function DiceApp() {
     const parsedHitStrength = Number.parseInt(throwHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(targetToughness, 10);
     const parsedThrowArmorSave = Number.parseInt(throwArmorSave, 10);
-    const parsedThrowWardSave = Number.parseInt(throwWardSave, 10);
+    const parsedThrowWardSave = throwWardSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwWardSave, 10);
+    const parsedPredatoryCount = predatoryFighter
+      ? Number.parseInt(predatoryFighterCount, 10)
+      : 0;
+    const parsedMultipleWounds = multipleWoundsEnabled
+      ? parseMultipleWoundsValue(multipleWoundsValue)
+      : null;
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -878,7 +876,10 @@ export default function DiceApp() {
       Number.isNaN(parsedHitStrength) ||
       Number.isNaN(parsedTargetToughness) ||
       Number.isNaN(parsedThrowArmorSave) ||
-      Number.isNaN(parsedThrowWardSave)
+      Number.isNaN(parsedThrowWardSave) ||
+      Number.isNaN(parsedPredatoryCount) ||
+      parsedPredatoryCount < 0 ||
+      (multipleWoundsEnabled && !parsedMultipleWounds)
     ) {
       setErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -889,12 +890,31 @@ export default function DiceApp() {
     const hitInitialRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
     const hitRerollResult = applyRerollWithDebug(hitInitialRolls, hitTarget, combatRerollHit);
     const hitRolls = hitRerollResult.finalRolls;
+    const predatoryCount = predatoryFighter
+      ? Math.min(parsedPredatoryCount, parsedDiceCount)
+      : 0;
+    const predatorySixes = predatoryCount
+      ? hitRolls.slice(0, predatoryCount).filter((roll) => roll === 6).length
+      : 0;
+    let extraHitInitialRolls: number[] = [];
+    let extraHitRerolls: number[] = [];
+    let extraHitRolls: number[] = [];
+    if (predatorySixes > 0) {
+      extraHitInitialRolls = Array.from({ length: predatorySixes }, () => Math.floor(Math.random() * 6) + 1);
+      const extraHitRerollResult = applyRerollWithDebug(extraHitInitialRolls, hitTarget, combatRerollHit);
+      extraHitRerolls = extraHitRerollResult.rerollRolls;
+      extraHitRolls = extraHitRerollResult.finalRolls;
+    }
+    const combinedHitInitialRolls = hitInitialRolls.concat(extraHitInitialRolls);
+    const combinedHitRerollRolls = hitRerollResult.rerollRolls.concat(extraHitRerolls);
+    const combinedHitRolls = hitRolls.concat(extraHitRolls);
+    const totalAttacks = parsedDiceCount + predatorySixes;
     const poisonedAutoWounds = poisonedAttack
-      ? hitRolls.filter((roll) => roll === 6).length
+      ? combinedHitRolls.filter((roll) => roll === 6).length
       : 0;
     const nonPoisonHits = poisonedAttack
-      ? hitRolls.filter((roll) => roll >= hitTarget && roll !== 6).length
-      : hitRolls.filter((roll) => roll >= hitTarget).length;
+      ? combinedHitRolls.filter((roll) => roll >= hitTarget && roll !== 6).length
+      : combinedHitRolls.filter((roll) => roll >= hitTarget).length;
     const hitSuccesses = poisonedAutoWounds + nonPoisonHits;
 
     const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
@@ -907,18 +927,37 @@ export default function DiceApp() {
     const effectiveArmorSave = parsedThrowArmorSave + (parsedHitStrength - 3);
     let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
+    let armorRerollRolls: number[] = [];
     if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
-      armorRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
+      const armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
+      const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, combatRerollArmor);
+      armorRerollRolls = armorRerollResult.rerollRolls;
+      armorRolls = armorRerollResult.finalRolls;
       const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
       failedArmorSaves = totalWounds - armorSuccesses;
     }
 
     let failedWardSaves = failedArmorSaves;
     let wardRolls: number[] = [];
+    let wardRerollRolls: number[] = [];
     if (parsedThrowWardSave > 1 && parsedThrowWardSave <= 6) {
-      wardRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
+      const wardInitialRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
+      const wardRerollResult = applyRerollWithDebug(wardInitialRolls, parsedThrowWardSave, combatRerollWard);
+      wardRerollRolls = wardRerollResult.rerollRolls;
+      wardRolls = wardRerollResult.finalRolls;
       const wardSuccesses = wardRolls.filter((roll) => roll >= parsedThrowWardSave).length;
       failedWardSaves = failedArmorSaves - wardSuccesses;
+    }
+
+    let finalDamage = failedWardSaves;
+    let multipleWoundsRolls: number[] = [];
+    if (parsedMultipleWounds) {
+      if (parsedMultipleWounds.type === 'fixed') {
+        finalDamage = failedWardSaves * parsedMultipleWounds.value;
+      } else {
+        multipleWoundsRolls = Array.from({ length: failedWardSaves }, () => Math.floor(Math.random() * parsedMultipleWounds.sides) + 1);
+        finalDamage = multipleWoundsRolls.reduce((sum, roll) => sum + roll, 0);
+      }
     }
 
     setThrowResults({
@@ -928,7 +967,7 @@ export default function DiceApp() {
       nonPoisonHits,
       failedArmorSaves,
       failedWardSaves,
-      finalDamage: failedWardSaves,
+      finalDamage,
     });
     setThrowDebug({
       hitTarget,
@@ -936,14 +975,20 @@ export default function DiceApp() {
       effectiveArmorSave,
       poisonedAutoWounds,
       nonPoisonHits,
-      hitInitialRolls,
-      hitRerollRolls: hitRerollResult.rerollRolls,
+      predatoryCount,
+      predatorySixes,
+      totalAttacks,
+      hitInitialRolls: combinedHitInitialRolls,
+      hitRerollRolls: combinedHitRerollRolls,
       woundInitialRolls,
       woundRerollRolls: woundRerollResult.rerollRolls,
-      hitRolls,
+      hitRolls: combinedHitRolls,
       woundRolls,
       armorRolls,
+      armorRerollRolls,
       wardRolls,
+      wardRerollRolls,
+      multipleWoundsRolls,
     });
     setHasThrowResults(true);
   };
@@ -954,8 +999,7 @@ export default function DiceApp() {
       hitValue.trim() === '' ||
       hitStrength.trim() === '' ||
       woundValue.trim() === '' ||
-      armorSave.trim() === '' ||
-      wardSave.trim() === ''
+      armorSave.trim() === ''
     ) {
       setErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -966,7 +1010,15 @@ export default function DiceApp() {
     const parsedHitStrength = Number.parseInt(hitStrength, 10);
     const parsedWoundValue = Number.parseInt(woundValue, 10);
     const parsedArmorSave = Number.parseInt(armorSave, 10);
-    const parsedWardSave = Number.parseInt(wardSave, 10);
+    const parsedWardSave = wardSave.trim() === ''
+      ? 0
+      : Number.parseInt(wardSave, 10);
+    const parsedPredatoryCount = predatoryFighter
+      ? Number.parseInt(predatoryFighterCount, 10)
+      : 0;
+    const parsedMultipleWounds = multipleWoundsEnabled
+      ? parseMultipleWoundsValue(multipleWoundsValue)
+      : null;
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -974,7 +1026,10 @@ export default function DiceApp() {
       Number.isNaN(parsedHitStrength) ||
       Number.isNaN(parsedWoundValue) ||
       Number.isNaN(parsedArmorSave) ||
-      Number.isNaN(parsedWardSave)
+      Number.isNaN(parsedWardSave) ||
+      Number.isNaN(parsedPredatoryCount) ||
+      parsedPredatoryCount < 0 ||
+      (multipleWoundsEnabled && !parsedMultipleWounds)
     ) {
       setErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -985,409 +1040,27 @@ export default function DiceApp() {
       diceCount: parsedDiceCount,
       hitValue: parsedHitValue,
       poisonedAttack,
+      predatoryFighterCount: predatoryFighter ? parsedPredatoryCount : 0,
       hitStrength: parsedHitStrength,
       woundValue: parsedWoundValue,
       armorSave: parsedArmorSave,
       wardSave: parsedWardSave,
       rerollHitConfig: toDiceRerollConfig(combatRerollHit),
       rerollWoundConfig: toDiceRerollConfig(combatRerollWound),
+      rerollArmorConfig: toDiceRerollConfig(combatRerollArmor),
+      rerollWardConfig: toDiceRerollConfig(combatRerollWard),
     });
-    setResults(newResults);
+    if (parsedMultipleWounds) {
+      const multiplier = parsedMultipleWounds.type === 'dice'
+        ? (parsedMultipleWounds.sides + 1) / 2
+        : parsedMultipleWounds.value;
+      const finalDamage = parseFloat((newResults.finalDamage * multiplier).toFixed(2));
+      setResults({ ...newResults, finalDamage });
+    } else {
+      setResults(newResults);
+    }
     setHasResults(true);
   };
-
-  const shootingModifiersLabel = () => {
-    const labels: string[] = [];
-    if (shootingModifiers.longRange) labels.push('Long range');
-    if (shootingModifiers.movement) labels.push('Movement');
-    if (shootingModifiers.skirmisherTarget) labels.push('Skirmisher target');
-    return labels.length ? labels.join(', ') : '-';
-  };
-
-  const shootingCoverLabel = () => {
-    const labels: string[] = [];
-    if (shootingModifiers.lightCover) labels.push('Light cover');
-    if (shootingModifiers.hardCover) labels.push('Hard cover');
-    return labels.length ? labels.join(', ') : '-';
-  };
-
-  const combatSummarySections = mode === 'probability'
-    ? [
-      {
-        title: 'To hit',
-        items: [
-          { label: 'Mode', value: 'Probability' },
-          { label: 'Dice count', value: diceCount },
-          { label: 'To Hit', value: `${hitValue}+` },
-          { label: 'Poisoned Attack', value: poisonedAttack ? 'Yes' : 'No' },
-          { label: 'Re-roll to hit', value: formatRerollLabel(combatRerollHit) },
-        ],
-      },
-      {
-        title: 'To wound',
-        items: [
-          { label: 'Hit Strength', value: hitStrength },
-          { label: 'To Wound', value: `${woundValue}+` },
-          { label: 'Re-roll to wound', value: formatRerollLabel(combatRerollWound) },
-        ],
-      },
-      {
-        title: 'Savings',
-        items: [
-          { label: 'Armor Save', value: `${armorSave}+` },
-          { label: 'Ward Save', value: `${wardSave}+` },
-        ],
-      },
-    ]
-    : [
-      {
-        title: 'To hit',
-        items: [
-          { label: 'Mode', value: 'Throw' },
-          { label: 'Dice count', value: diceCount },
-          { label: 'Attackers AC', value: attackersAc },
-          { label: 'Defenders AC', value: defendersAc },
-          { label: 'Poisoned Attack', value: poisonedAttack ? 'Yes' : 'No' },
-          { label: 'Re-roll to hit', value: formatRerollLabel(combatRerollHit) },
-        ],
-      },
-      {
-        title: 'To wound',
-        items: [
-          { label: 'Hit Strength', value: throwHitStrength },
-          { label: 'Target Toughness', value: targetToughness },
-          { label: 'Re-roll to wound', value: formatRerollLabel(combatRerollWound) },
-        ],
-      },
-      {
-        title: 'Savings',
-        items: [
-          { label: 'Armor Save', value: `${throwArmorSave}+` },
-          { label: 'Ward Save', value: `${throwWardSave}+` },
-        ],
-      },
-    ];
-
-  const shootingSummarySections = shootingMode === 'probability'
-    ? [
-      {
-        title: 'To hit',
-        items: [
-          { label: 'Mode', value: 'Probability' },
-          { label: 'Dice count', value: shootingDiceCount },
-          { label: 'Balistic Skill', value: shootingAutoHit ? '-' : ballisticSkill },
-          { label: 'Modifiers', value: shootingAutoHit ? '-' : shootingModifiersLabel() },
-          { label: 'Cover', value: shootingAutoHit ? '-' : shootingCoverLabel() },
-          { label: 'Auto-hit', value: shootingAutoHit ? 'Yes' : 'No' },
-          { label: 'Poisoned Attack', value: shootingPoisonedAttack ? 'Yes' : 'No' },
-          { label: 'Re-roll to hit', value: formatRerollLabel(shootingRerollHit) },
-        ],
-      },
-      {
-        title: 'To wound',
-        items: [
-          { label: 'Hit Strength', value: shootingHitStrength },
-          { label: 'To Wound', value: `${shootingWoundValue}+` },
-          { label: 'Re-roll to wound', value: formatRerollLabel(shootingRerollWound) },
-        ],
-      },
-      {
-        title: 'Savings',
-        items: [
-          { label: 'Armor Save', value: `${shootingArmorSave}+` },
-          { label: 'Ward Save', value: `${shootingWardSave}+` },
-        ],
-      },
-    ]
-    : [
-      {
-        title: 'To hit',
-        items: [
-          { label: 'Mode', value: 'Throw' },
-          { label: 'Dice count', value: shootingDiceCount },
-          { label: 'Balistic Skill', value: shootingAutoHit ? '-' : ballisticSkill },
-          { label: 'Modifiers', value: shootingAutoHit ? '-' : shootingModifiersLabel() },
-          { label: 'Cover', value: shootingAutoHit ? '-' : shootingCoverLabel() },
-          { label: 'Auto-hit', value: shootingAutoHit ? 'Yes' : 'No' },
-          { label: 'Poisoned Attack', value: shootingPoisonedAttack ? 'Yes' : 'No' },
-          { label: 'Re-roll to hit', value: formatRerollLabel(shootingRerollHit) },
-        ],
-      },
-      {
-        title: 'To wound',
-        items: [
-          { label: 'Hit Strength', value: shootingHitStrength },
-          { label: 'Target Toughness', value: shootingTargetToughness },
-          { label: 'Re-roll to wound', value: formatRerollLabel(shootingRerollWound) },
-        ],
-      },
-      {
-        title: 'Savings',
-        items: [
-          { label: 'Armor Save', value: `${shootingArmorSave}+` },
-          { label: 'Ward Save', value: `${shootingWardSave}+` },
-        ],
-      },
-    ];
-
-  const generalSummarySections = [
-    {
-      title: 'General throw',
-      items: [
-        { label: 'Mode', value: generalMode === 'probability' ? 'Probability' : 'Throw' },
-        { label: 'Dice count', value: generalDiceCount },
-        { label: 'Objective', value: generalObjective === 'target' ? 'Target value' : 'Total throw' },
-        { label: 'Target value', value: generalObjective === 'target' ? `${generalTargetValue}+` : '-' },
-        { label: 'Re-roll', value: formatRerollLabel(generalReroll) },
-      ],
-    },
-  ];
-
-  const moraleSummarySections = [
-    {
-      title: 'Break / Morale check',
-      items: [
-        { label: 'Discipline', value: moraleDiscipline },
-        { label: 'Bonus', value: moraleBonus },
-        { label: 'Malus', value: moraleMalus },
-        { label: 'Stubborn', value: moraleStubborn ? 'Yes' : 'No' },
-        { label: 'With three dice', value: moraleWithThreeDice ? 'Yes' : 'No' },
-        { label: 'Re-roll', value: formatRerollLabel(moraleReroll) },
-      ],
-    },
-  ];
-
-  const trechSummarySections = [
-    {
-      title: 'Generic roll',
-      items: [
-        { label: '+Dice', value: trechPlusDice },
-        { label: '-Dice', value: trechMinusDice },
-        { label: 'Positive modifier', value: trechPositiveModifier },
-        { label: 'Negative modifier', value: trechNegativeModifier },
-        { label: 'Success target', value: '7+' },
-      ],
-    },
-  ];
-
-  const trechInjurySummarySections = [
-    {
-      title: 'Injury roll',
-      items: [
-        { label: '+Dice', value: trechInjuryPlusDice },
-        { label: '-Dice', value: trechInjuryMinusDice },
-        { label: 'Positive modifier', value: trechInjuryPositiveModifier },
-        { label: 'Negative modifier', value: trechInjuryNegativeModifier },
-      ],
-    },
-  ];
-
-  const trechInjuryResultsNode = trechInjuryResults ? (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <div className="mt-4 space-y-2 text-sm">
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Selected dice</span>
-          <span className="font-mono text-lg text-zinc-900">{trechInjuryResults.selectedRolls.join(' + ')}</span>
-        </p>
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Base total</span>
-          <span className="font-mono text-lg text-zinc-900">{trechInjuryResults.baseTotal}</span>
-        </p>
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Final total</span>
-          <span className="font-mono text-lg text-zinc-900">{trechInjuryResults.finalTotal}</span>
-        </p>
-        <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-              Outcome
-            </span>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-              Injury table
-            </p>
-          </div>
-          <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-            {trechInjuryResults.outcome}
-          </span>
-        </div>
-        <p className="text-xs text-zinc-600">
-          Rolls: <span className="font-mono text-zinc-900">{trechInjuryResults.rolls.join(', ') || '-'}</span>
-        </p>
-      </div>
-    </Card>
-  ) : (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <p className="mt-3 text-sm text-zinc-600">No results yet.</p>
-    </Card>
-  );
-
-  const trechResultsNode = trechResults ? (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <div className="mt-4 space-y-2 text-sm">
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Selected dice</span>
-          <span className="font-mono text-lg text-zinc-900">{trechResults.selectedRolls.join(' + ')}</span>
-        </p>
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Base total</span>
-          <span className="font-mono text-lg text-zinc-900">{trechResults.baseTotal}</span>
-        </p>
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Final total</span>
-          <span className="font-mono text-lg text-zinc-900">{trechResults.finalTotal}</span>
-        </p>
-        <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-              Outcome
-            </span>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-              Success on 7+
-            </p>
-          </div>
-          <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-            {trechResults.success ? 'Success' : 'Failed'}
-          </span>
-        </div>
-        <p className="text-xs text-zinc-600">
-          Rolls: <span className="font-mono text-zinc-900">{trechResults.rolls.join(', ') || '-'}</span>
-        </p>
-      </div>
-    </Card>
-  ) : (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <p className="mt-3 text-sm text-zinc-600">No results yet.</p>
-    </Card>
-  );
-
-  const generalResultsNode = generalMode === 'probability'
-    ? (
-      <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-        <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-        <div className="mt-4 space-y-3 text-sm">
-          {generalObjective === 'target' ? (
-            <>
-              <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-                <span className="text-zinc-600">Average successes</span>
-                <span className="font-mono text-lg text-zinc-900">
-                  {generalAverageResults.averageSuccesses.toFixed(2)}
-                </span>
-              </p>
-              <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-                <span className="text-zinc-600">Success chance</span>
-                <span className="font-mono text-lg text-zinc-900">
-                  {(generalAverageResults.successChance * 100).toFixed(2)}%
-                </span>
-              </p>
-            </>
-          ) : (
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Average total</span>
-              <span className="font-mono text-lg text-zinc-900">
-                {generalAverageResults.averageTotal.toFixed(2)}
-              </span>
-            </p>
-          )}
-          <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                {generalObjective === 'target' ? 'Average successes' : 'Average total'}
-              </span>
-              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                Real value: {generalObjective === 'target'
-                  ? generalAverageResults.averageSuccesses.toFixed(2)
-                  : generalAverageResults.averageTotal.toFixed(2)}
-              </p>
-            </div>
-            <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-              {Math.round(generalObjective === 'target'
-                ? generalAverageResults.averageSuccesses
-                : generalAverageResults.averageTotal)}
-            </span>
-          </div>
-        </div>
-      </Card>
-    )
-    : (
-      <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-        <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-        <div className="mt-4 space-y-2 text-sm">
-          {generalObjective === 'target' ? (
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Number of successes</span>
-              <span className="font-mono text-lg text-zinc-900">{generalThrowResults.successes}</span>
-            </p>
-          ) : (
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Total throw</span>
-              <span className="font-mono text-lg text-zinc-900">{generalThrowResults.total}</span>
-            </p>
-          )}
-          <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                {generalObjective === 'target' ? 'Successes' : 'Total'}
-              </span>
-              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                {generalObjective === 'target'
-                  ? `Out of ${generalDiceCount} dice`
-                  : `From ${generalDiceCount} dice`}
-              </p>
-            </div>
-            <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-              {generalObjective === 'target' ? generalThrowResults.successes : generalThrowResults.total}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-600">
-            Rolls: <span className="font-mono text-zinc-900">{generalThrowResults.rolls.join(', ') || '-'}</span>
-          </p>
-        </div>
-      </Card>
-    );
-
-  const moraleResultsNode = moraleResults ? (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <div className="mt-4 space-y-2 text-sm">
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Target value</span>
-          <span className="font-mono text-lg text-zinc-900">{moraleResults.target}</span>
-        </p>
-        <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-          <span className="text-zinc-600">Total</span>
-          <span className="font-mono text-lg text-zinc-900">{moraleResults.total}</span>
-        </p>
-        <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-              Outcome
-            </span>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-              Double one always passes
-            </p>
-          </div>
-          <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-            {moraleResults.outcome}
-          </span>
-        </div>
-        <p className="text-xs text-zinc-600">
-          Rolls: <span className="font-mono text-zinc-900">{moraleResults.rolls.join(', ') || '-'}</span>
-        </p>
-        <p className="text-xs text-zinc-600">
-          Used rolls: <span className="font-mono text-zinc-900">{moraleResults.usedRolls.join(', ') || '-'}</span>
-        </p>
-      </div>
-    </Card>
-  ) : (
-    <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
-      <h3 className="text-lg font-semibold text-zinc-900">Results</h3>
-      <p className="mt-3 text-sm text-zinc-600">No results yet.</p>
-    </Card>
-  );
 
   return (
     <div className="min-h-screen w-full px-4 py-10 sm:px-8">
@@ -1401,446 +1074,226 @@ export default function DiceApp() {
           />
 
           <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
-            {!uiMode ? (
-              <UiModeSelector onSelect={handleUiModeSelect} />
-            ) : uiMode === 'classic' ? (
-              !gameSystem ? (
-                <SystemSelector onSelect={handleSystemSelect} />
-              ) : !phase ? (
-                <PhaseSelector
-                  systemLabel={systemLabel}
-                  systemKey={gameSystem}
-                  onSelect={handlePhaseSelect}
-                  onBack={handleSystemBack}
-                />
-              ) : phase === 'general' ? (
-                <GeneralThrowCalculator
-                  diceCount={generalDiceCount}
-                  objective={generalObjective}
-                  targetValue={generalTargetValue}
-                  mode={generalMode}
-                  errorMessage={generalErrorMessage}
-                  averageResults={generalAverageResults}
-                  throwResults={generalThrowResults}
-                  hasAverageResults={hasGeneralAverageResults}
-                  hasThrowResults={hasGeneralThrowResults}
-                  rerollConfig={generalReroll}
-                  debug={generalDebug}
-                  onBack={handlePhaseBack}
-                  onDiceCountChange={setGeneralDiceCount}
-                  onObjectiveChange={setGeneralObjective}
-                  onTargetValueChange={setGeneralTargetValue}
-                  onModeChange={setGeneralMode}
-                  onAverageCalculate={handleGeneralAverageCalculate}
-                  onThrowCalculate={handleGeneralThrowCalculate}
-                  onRerollChange={setGeneralReroll}
-                />
-              ) : phase === 'shooting' ? (
-                <ShootingPhaseCalculator
-                  diceCount={shootingDiceCount}
-                  mode={shootingMode}
-                  ballisticSkill={ballisticSkill}
-                  poisonedAttack={shootingPoisonedAttack}
-                  autoHit={shootingAutoHit}
-                  hitStrength={shootingHitStrength}
-                  targetToughness={shootingTargetToughness}
-                  woundValue={shootingWoundValue}
-                  armorSave={shootingArmorSave}
-                  wardSave={shootingWardSave}
-                  resultNeeded={getShootingResultNeeded()}
-                  modifiers={shootingModifiers}
-                  errorMessage={shootingErrorMessage}
-                  probabilityResults={shootingProbabilityResults}
-                  throwResults={shootingThrowResults}
-                  hasProbabilityResults={hasShootingProbabilityResults}
-                  hasThrowResults={hasShootingThrowResults}
-                  rerollHitConfig={shootingRerollHit}
-                  rerollWoundConfig={shootingRerollWound}
-                  debug={shootingDebug}
-                  onDiceCountChange={setShootingDiceCount}
-                  onModeChange={setShootingMode}
-                  onBallisticSkillChange={setBallisticSkill}
-                  onPoisonedAttackChange={setShootingPoisonedAttack}
-                  onAutoHitChange={handleShootingAutoHitChange}
-                  onHitStrengthChange={setShootingHitStrength}
-                  onTargetToughnessChange={setShootingTargetToughness}
-                  onWoundValueChange={setShootingWoundValue}
-                  onArmorSaveChange={setShootingArmorSave}
-                  onWardSaveChange={setShootingWardSave}
-                  onModifierChange={handleShootingModifierChange}
-                  onAverageCalculate={handleShootingAverageCalculate}
-                  onThrowCalculate={handleShootingThrowCalculate}
-                  onBack={handlePhaseBack}
-                  onRerollHitChange={setShootingRerollHit}
-                  onRerollWoundChange={setShootingRerollWound}
-                />
-              ) : phase === 'morale' ? (
-                <BreakMoraleCheck
-                  discipline={moraleDiscipline}
-                  bonus={moraleBonus}
-                  malus={moraleMalus}
-                  stubborn={moraleStubborn}
-                  withThreeDice={moraleWithThreeDice}
-                  errorMessage={moraleErrorMessage}
-                  results={moraleResults}
-                  rerollConfig={moraleReroll}
-                  debug={moraleDebug}
-                  onDisciplineChange={setMoraleDiscipline}
-                  onBonusChange={setMoraleBonus}
-                  onMalusChange={setMoraleMalus}
-                  onStubbornChange={setMoraleStubborn}
-                  onWithThreeDiceChange={setMoraleWithThreeDice}
-                  onRoll={handleMoraleRoll}
-                  onBack={handlePhaseBack}
-                  onRerollChange={setMoraleReroll}
-                />
-              ) : phase === 'tc-generic' ? (
-                <TrechGenericRollCalculator
-                  plusDice={trechPlusDice}
-                  minusDice={trechMinusDice}
-                  positiveModifier={trechPositiveModifier}
-                  negativeModifier={trechNegativeModifier}
-                  errorMessage={trechErrorMessage}
-                  results={trechResults}
-                  debug={trechDebug}
-                  onPlusDiceChange={setTrechPlusDice}
-                  onMinusDiceChange={setTrechMinusDice}
-                  onPositiveModifierChange={setTrechPositiveModifier}
-                  onNegativeModifierChange={setTrechNegativeModifier}
-                  onRoll={handleTrechGenericRoll}
-                  onBack={handlePhaseBack}
-                />
-              ) : phase === 'tc-injury' ? (
-                <TrechInjuryRollCalculator
-                  plusDice={trechInjuryPlusDice}
-                  minusDice={trechInjuryMinusDice}
-                  positiveModifier={trechInjuryPositiveModifier}
-                  negativeModifier={trechInjuryNegativeModifier}
-                  errorMessage={trechInjuryErrorMessage}
-                  results={trechInjuryResults}
-                  debug={trechInjuryDebug}
-                  onPlusDiceChange={setTrechInjuryPlusDice}
-                  onMinusDiceChange={setTrechInjuryMinusDice}
-                  onPositiveModifierChange={setTrechInjuryPositiveModifier}
-                  onNegativeModifierChange={setTrechInjuryNegativeModifier}
-                  onRoll={handleTrechInjuryRoll}
-                  onBack={handlePhaseBack}
-                />
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handlePhaseBack}
-                    className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-                  >
-                    Back to phases
-                  </button>
-                  <ModeSwitch mode={mode} onModeChange={setMode} />
-                  {mode === 'probability' ? (
-                    <ProbabilityCalculator
-                      diceCount={diceCount}
-                      hitValue={hitValue}
-                      poisonedAttack={poisonedAttack}
-                      hitStrength={hitStrength}
-                      woundValue={woundValue}
-                      armorSave={armorSave}
-                      wardSave={wardSave}
-                      errorMessage={errorMessage}
-                      results={results}
-                      rerollHitConfig={combatRerollHit}
-                      rerollWoundConfig={combatRerollWound}
-                      onDiceCountChange={setDiceCount}
-                      onHitValueChange={setHitValue}
-                      onPoisonedAttackChange={setPoisonedAttack}
-                      onHitStrengthChange={setHitStrength}
-                      onWoundValueChange={setWoundValue}
-                      onArmorSaveChange={setArmorSave}
-                      onWardSaveChange={setWardSave}
-                      onCalculate={handleCalculate}
-                      onRerollHitChange={setCombatRerollHit}
-                      onRerollWoundChange={setCombatRerollWound}
-                    />
-                  ) : (
-                    <ThrowDiceCalculator
-                      diceCount={diceCount}
-                      attackersAc={attackersAc}
-                      defendersAc={defendersAc}
-                      throwHitStrength={throwHitStrength}
-                      targetToughness={targetToughness}
-                      throwArmorSave={throwArmorSave}
-                      throwWardSave={throwWardSave}
-                      poisonedAttack={poisonedAttack}
-                      errorMessage={errorMessage}
-                      hasThrowResults={hasThrowResults}
-                      throwResults={throwResults}
-                      throwDebug={throwDebug}
-                      rerollHitConfig={combatRerollHit}
-                      rerollWoundConfig={combatRerollWound}
-                      onDiceCountChange={setDiceCount}
-                      onAttackersAcChange={setAttackersAc}
-                      onDefendersAcChange={setDefendersAc}
-                      onThrowHitStrengthChange={setThrowHitStrength}
-                      onTargetToughnessChange={setTargetToughness}
-                      onThrowArmorSaveChange={setThrowArmorSave}
-                      onThrowWardSaveChange={setThrowWardSave}
-                      onPoisonedAttackChange={setPoisonedAttack}
-                      onCalculate={handleThrowCalculate}
-                      onRerollHitChange={setCombatRerollHit}
-                      onRerollWoundChange={setCombatRerollWound}
-                    />
-                  )}
-                </>
-              )
-            ) : !gameSystem ? (
+            {!gameSystem ? (
               <SystemSelector onSelect={handleSystemSelect} />
-            ) : !newUiPhase ? (
-              <NewUiPhaseSelector
+            ) : !phase ? (
+              <PhaseSelector
                 systemLabel={systemLabel}
                 systemKey={gameSystem}
-                onSelect={handleNewUiPhaseSelect}
+                onSelect={handlePhaseSelect}
                 onBack={handleSystemBack}
               />
-            ) : newUiView === 'mode' ? (
-              <NewUiModeSelector onSelect={handleNewUiModeSelect} onBack={handleNewUiBack} />
-            ) : newUiView === 'wizard' ? (
-              newUiPhase === 'combat' ? (
-                <NewUiCombatWizard
-                  step={newUiStep}
-                  mode={mode}
-                  diceCount={diceCount}
-                  hitValue={hitValue}
-                  attackersAc={attackersAc}
-                  defendersAc={defendersAc}
-                  poisonedAttack={poisonedAttack}
-                  hitStrength={hitStrength}
-                  woundValue={woundValue}
-                  targetToughness={targetToughness}
-                  armorSave={armorSave}
-                  wardSave={wardSave}
-                  rerollHitConfig={combatRerollHit}
-                  rerollWoundConfig={combatRerollWound}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onDiceCountChange={setDiceCount}
-                  onHitValueChange={setHitValue}
-                  onAttackersAcChange={setAttackersAc}
-                  onDefendersAcChange={setDefendersAc}
-                  onPoisonedAttackChange={setPoisonedAttack}
-                  onHitStrengthChange={setHitStrength}
-                  onWoundValueChange={setWoundValue}
-                  onTargetToughnessChange={setTargetToughness}
-                  onArmorSaveChange={setArmorSave}
-                  onWardSaveChange={setWardSave}
-                  onRerollHitChange={setCombatRerollHit}
-                  onRerollWoundChange={setCombatRerollWound}
-                />
-              ) : newUiPhase === 'shooting' ? (
-                <NewUiShootingWizard
-                  step={newUiStep}
-                  mode={shootingMode}
-                  diceCount={shootingDiceCount}
-                  ballisticSkill={ballisticSkill}
-                  resultNeeded={getShootingResultNeeded()}
-                  modifiers={shootingModifiers}
-                  poisonedAttack={shootingPoisonedAttack}
-                  autoHit={shootingAutoHit}
-                  hitStrength={shootingHitStrength}
-                  woundValue={shootingWoundValue}
-                  targetToughness={shootingTargetToughness}
-                  armorSave={shootingArmorSave}
-                  wardSave={shootingWardSave}
-                  rerollHitConfig={shootingRerollHit}
-                  rerollWoundConfig={shootingRerollWound}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onDiceCountChange={setShootingDiceCount}
-                  onBallisticSkillChange={setBallisticSkill}
-                  onModifierChange={handleShootingModifierChange}
-                  onPoisonedAttackChange={setShootingPoisonedAttack}
-                  onAutoHitChange={handleShootingAutoHitChange}
-                  onHitStrengthChange={setShootingHitStrength}
-                  onWoundValueChange={setShootingWoundValue}
-                  onTargetToughnessChange={setShootingTargetToughness}
-                  onArmorSaveChange={setShootingArmorSave}
-                  onWardSaveChange={setShootingWardSave}
-                  onRerollHitChange={setShootingRerollHit}
-                  onRerollWoundChange={setShootingRerollWound}
-                />
-              ) : newUiPhase === 'general' ? (
-                <NewUiGeneralWizard
-                  step={newUiStep}
-                  mode={generalMode}
-                  diceCount={generalDiceCount}
-                  objective={generalObjective}
-                  targetValue={generalTargetValue}
-                  rerollConfig={generalReroll}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onDiceCountChange={setGeneralDiceCount}
-                  onObjectiveChange={setGeneralObjective}
-                  onTargetValueChange={setGeneralTargetValue}
-                  onRerollChange={setGeneralReroll}
-                />
-              ) : newUiPhase === 'morale' ? (
-                <NewUiMoraleWizard
-                  step={newUiStep}
-                  discipline={moraleDiscipline}
-                  bonus={moraleBonus}
-                  malus={moraleMalus}
-                  stubborn={moraleStubborn}
-                  withThreeDice={moraleWithThreeDice}
-                  rerollConfig={moraleReroll}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onDisciplineChange={setMoraleDiscipline}
-                  onBonusChange={setMoraleBonus}
-                  onMalusChange={setMoraleMalus}
-                  onStubbornChange={setMoraleStubborn}
-                  onWithThreeDiceChange={setMoraleWithThreeDice}
-                  onRerollChange={setMoraleReroll}
-                />
-              ) : newUiPhase === 'tc-generic' ? (
-                <NewUiTrechGenericWizard
-                  step={newUiStep}
-                  plusDice={trechPlusDice}
-                  minusDice={trechMinusDice}
-                  positiveModifier={trechPositiveModifier}
-                  negativeModifier={trechNegativeModifier}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onPlusDiceChange={setTrechPlusDice}
-                  onMinusDiceChange={setTrechMinusDice}
-                  onPositiveModifierChange={setTrechPositiveModifier}
-                  onNegativeModifierChange={setTrechNegativeModifier}
-                />
-              ) : newUiPhase === 'tc-injury' ? (
-                <NewUiTrechInjuryWizard
-                  step={newUiStep}
-                  plusDice={trechInjuryPlusDice}
-                  minusDice={trechInjuryMinusDice}
-                  positiveModifier={trechInjuryPositiveModifier}
-                  negativeModifier={trechInjuryNegativeModifier}
-                  onNext={handleNewUiNext}
-                  onBack={handleNewUiBack}
-                  onCalculate={handleNewUiCalculate}
-                  onPlusDiceChange={setTrechInjuryPlusDice}
-                  onMinusDiceChange={setTrechInjuryMinusDice}
-                  onPositiveModifierChange={setTrechInjuryPositiveModifier}
-                  onNegativeModifierChange={setTrechInjuryNegativeModifier}
-                />
-              ) : null
-            ) : newUiPhase === 'combat' ? (
-              <NewUiSummary
-                title="Combat summary"
-                sections={combatSummarySections}
-                results={mode === 'probability' ? (
-                  <ProbabilityResultsCard results={results} poisonedAttack={poisonedAttack} />
-                ) : (
-                  <ThrowResultsCard results={throwResults} />
-                )}
-                debugLines={mode === 'probability'
-                  ? [
-                    { label: 'Initial rolls', value: '-' },
-                    { label: 'Re-rolls', value: '-' },
-                  ]
-                  : [
-                    { label: 'Hit initial rolls', value: throwDebug.hitInitialRolls.join(', ') || '-' },
-                    { label: 'Hit re-rolls', value: throwDebug.hitRerollRolls.join(', ') || '-' },
-                    { label: 'Wound initial rolls', value: throwDebug.woundInitialRolls.join(', ') || '-' },
-                    { label: 'Wound re-rolls', value: throwDebug.woundRerollRolls.join(', ') || '-' },
-                  ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
+            ) : phase === 'general' ? (
+              <GeneralThrowCalculator
+                diceCount={generalDiceCount}
+                objective={generalObjective}
+                targetValue={generalTargetValue}
+                mode={generalMode}
+                errorMessage={generalErrorMessage}
+                averageResults={generalAverageResults}
+                throwResults={generalThrowResults}
+                hasAverageResults={hasGeneralAverageResults}
+                hasThrowResults={hasGeneralThrowResults}
+                rerollConfig={generalReroll}
+                debug={generalDebug}
+                onBack={handlePhaseBack}
+                onDiceCountChange={setGeneralDiceCount}
+                onObjectiveChange={setGeneralObjective}
+                onTargetValueChange={setGeneralTargetValue}
+                onModeChange={setGeneralMode}
+                onAverageCalculate={handleGeneralAverageCalculate}
+                onThrowCalculate={handleGeneralThrowCalculate}
+                onRerollChange={setGeneralReroll}
               />
-            ) : newUiPhase === 'shooting' ? (
-              <NewUiSummary
-                title="Shooting summary"
-                sections={shootingSummarySections}
-                results={shootingMode === 'probability' ? (
-                  <ProbabilityResultsCard
-                    results={shootingProbabilityResults}
-                    poisonedAttack={shootingPoisonedAttack && getShootingResultNeeded() <= 6 && !shootingAutoHit}
-                  />
-                ) : (
-                  <ProbabilityResultsCard
-                    results={shootingThrowResults}
-                    poisonedAttack={shootingPoisonedAttack && getShootingResultNeeded() <= 6 && !shootingAutoHit}
-                  />
-                )}
-                debugLines={shootingMode === 'probability'
-                  ? [
-                    { label: 'Initial rolls', value: '-' },
-                    { label: 'Re-rolls', value: '-' },
-                  ]
-                  : [
-                    { label: 'Hit initial rolls', value: shootingDebug.hitInitialRolls.join(', ') || '-' },
-                    { label: 'Hit re-rolls', value: shootingDebug.hitRerollRolls.join(', ') || '-' },
-                    { label: 'Wound initial rolls', value: shootingDebug.woundInitialRolls.join(', ') || '-' },
-                    { label: 'Wound re-rolls', value: shootingDebug.woundRerollRolls.join(', ') || '-' },
-                  ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
+            ) : phase === 'shooting' ? (
+              <ShootingPhaseCalculator
+                diceCount={shootingDiceCount}
+                mode={shootingMode}
+                ballisticSkill={ballisticSkill}
+                poisonedAttack={shootingPoisonedAttack}
+                autoHit={shootingAutoHit}
+                multipleWoundsEnabled={shootingMultipleWoundsEnabled}
+                multipleWoundsValue={shootingMultipleWoundsValue}
+                hitStrength={shootingHitStrength}
+                targetToughness={shootingTargetToughness}
+                woundValue={shootingWoundValue}
+                armorSave={shootingArmorSave}
+                wardSave={shootingWardSave}
+                resultNeeded={getShootingResultNeeded()}
+                modifiers={shootingModifiers}
+                errorMessage={shootingErrorMessage}
+                probabilityResults={shootingProbabilityResults}
+                throwResults={shootingThrowResults}
+                hasProbabilityResults={hasShootingProbabilityResults}
+                hasThrowResults={hasShootingThrowResults}
+                rerollHitConfig={shootingRerollHit}
+                rerollWoundConfig={shootingRerollWound}
+                rerollArmorConfig={shootingRerollArmor}
+                rerollWardConfig={shootingRerollWard}
+                debug={shootingDebug}
+                onDiceCountChange={setShootingDiceCount}
+                onModeChange={setShootingMode}
+                onBallisticSkillChange={setBallisticSkill}
+                onPoisonedAttackChange={setShootingPoisonedAttack}
+                onAutoHitChange={handleShootingAutoHitChange}
+                onMultipleWoundsChange={setShootingMultipleWoundsEnabled}
+                onMultipleWoundsValueChange={setShootingMultipleWoundsValue}
+                onHitStrengthChange={setShootingHitStrength}
+                onTargetToughnessChange={setShootingTargetToughness}
+                onWoundValueChange={setShootingWoundValue}
+                onArmorSaveChange={setShootingArmorSave}
+                onWardSaveChange={setShootingWardSave}
+                onModifierChange={handleShootingModifierChange}
+                onAverageCalculate={handleShootingAverageCalculate}
+                onThrowCalculate={handleShootingThrowCalculate}
+                onBack={handlePhaseBack}
+                onRerollHitChange={setShootingRerollHit}
+                onRerollWoundChange={setShootingRerollWound}
+                onRerollArmorChange={setShootingRerollArmor}
+                onRerollWardChange={setShootingRerollWard}
               />
-            ) : newUiPhase === 'general' ? (
-              <NewUiSummary
-                title="General throw summary"
-                sections={generalSummarySections}
-                results={generalResultsNode}
-                debugLines={generalMode === 'probability'
-                  ? [
-                    { label: 'Initial rolls', value: '-' },
-                    { label: 'Re-rolls', value: '-' },
-                  ]
-                  : [
-                    { label: 'Initial rolls', value: generalDebug.initialRolls.join(', ') || '-' },
-                    { label: 'Re-rolls', value: generalDebug.rerollRolls.join(', ') || '-' },
-                    { label: 'Final rolls', value: generalDebug.finalRolls.join(', ') || '-' },
-                  ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
+            ) : phase === 'morale' ? (
+              <BreakMoraleCheck
+                discipline={moraleDiscipline}
+                bonus={moraleBonus}
+                malus={moraleMalus}
+                stubborn={moraleStubborn}
+                withThreeDice={moraleWithThreeDice}
+                errorMessage={moraleErrorMessage}
+                results={moraleResults}
+                rerollConfig={moraleReroll}
+                debug={moraleDebug}
+                onDisciplineChange={setMoraleDiscipline}
+                onBonusChange={setMoraleBonus}
+                onMalusChange={setMoraleMalus}
+                onStubbornChange={setMoraleStubborn}
+                onWithThreeDiceChange={setMoraleWithThreeDice}
+                onRoll={handleMoraleRoll}
+                onBack={handlePhaseBack}
+                onRerollChange={setMoraleReroll}
               />
-            ) : newUiPhase === 'tc-generic' ? (
-              <NewUiSummary
-                title="Generic roll summary"
-                sections={trechSummarySections}
-                results={trechResultsNode}
-                debugLines={[
-                  { label: 'Initial rolls', value: trechDebug.rolls.join(', ') || '-' },
-                  { label: 'Selected rolls', value: trechDebug.selectedRolls.join(', ') || '-' },
-                ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
+            ) : phase === 'challenge' ? (
+              <ChallengeSimulator onBack={handlePhaseBack} />
+            ) : phase === 'tc-generic' ? (
+              <TrechGenericRollCalculator
+                plusDice={trechPlusDice}
+                minusDice={trechMinusDice}
+                positiveModifier={trechPositiveModifier}
+                negativeModifier={trechNegativeModifier}
+                errorMessage={trechErrorMessage}
+                results={trechResults}
+                debug={trechDebug}
+                onPlusDiceChange={setTrechPlusDice}
+                onMinusDiceChange={setTrechMinusDice}
+                onPositiveModifierChange={setTrechPositiveModifier}
+                onNegativeModifierChange={setTrechNegativeModifier}
+                onRoll={handleTrechGenericRoll}
+                onBack={handlePhaseBack}
               />
-            ) : newUiPhase === 'tc-injury' ? (
-              <NewUiSummary
-                title="Injury roll summary"
-                sections={trechInjurySummarySections}
-                results={trechInjuryResultsNode}
-                debugLines={[
-                  { label: 'Initial rolls', value: trechInjuryDebug.rolls.join(', ') || '-' },
-                  { label: 'Selected rolls', value: trechInjuryDebug.selectedRolls.join(', ') || '-' },
-                ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
+            ) : phase === 'tc-injury' ? (
+              <TrechInjuryRollCalculator
+                plusDice={trechInjuryPlusDice}
+                minusDice={trechInjuryMinusDice}
+                positiveModifier={trechInjuryPositiveModifier}
+                negativeModifier={trechInjuryNegativeModifier}
+                errorMessage={trechInjuryErrorMessage}
+                results={trechInjuryResults}
+                debug={trechInjuryDebug}
+                onPlusDiceChange={setTrechInjuryPlusDice}
+                onMinusDiceChange={setTrechInjuryMinusDice}
+                onPositiveModifierChange={setTrechInjuryPositiveModifier}
+                onNegativeModifierChange={setTrechInjuryNegativeModifier}
+                onRoll={handleTrechInjuryRoll}
+                onBack={handlePhaseBack}
               />
             ) : (
-              <NewUiSummary
-                title="Break / Morale check summary"
-                sections={moraleSummarySections}
-                results={moraleResultsNode}
-                debugLines={[
-                  { label: 'Initial rolls', value: moraleDebug.initialRolls.join(', ') || '-' },
-                  { label: 'Re-rolls', value: moraleDebug.rerollRolls.join(', ') || '-' },
-                  { label: 'Final rolls', value: moraleDebug.finalRolls.join(', ') || '-' },
-                ]}
-                onReroll={handleNewUiReroll}
-                onBackToStart={handleNewUiBackToStart}
-              />
+              <>
+                <button
+                  type="button"
+                  onClick={handlePhaseBack}
+                  className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                >
+                  Back to phases
+                </button>
+                <ModeSwitch mode={mode} onModeChange={setMode} />
+                {mode === 'probability' ? (
+                  <ProbabilityCalculator
+                    diceCount={diceCount}
+                    hitValue={hitValue}
+                    poisonedAttack={poisonedAttack}
+                    predatoryFighter={predatoryFighter}
+                    predatoryFighterCount={predatoryFighterCount}
+                    multipleWoundsEnabled={multipleWoundsEnabled}
+                    multipleWoundsValue={multipleWoundsValue}
+                    hitStrength={hitStrength}
+                    woundValue={woundValue}
+                    armorSave={armorSave}
+                    wardSave={wardSave}
+                    errorMessage={errorMessage}
+                    results={results}
+                    rerollHitConfig={combatRerollHit}
+                    rerollWoundConfig={combatRerollWound}
+                    rerollArmorConfig={combatRerollArmor}
+                    rerollWardConfig={combatRerollWard}
+                    onDiceCountChange={setDiceCount}
+                    onHitValueChange={setHitValue}
+                    onPoisonedAttackChange={setPoisonedAttack}
+                    onPredatoryFighterChange={setPredatoryFighter}
+                    onPredatoryFighterCountChange={setPredatoryFighterCount}
+                    onMultipleWoundsChange={setMultipleWoundsEnabled}
+                    onMultipleWoundsValueChange={setMultipleWoundsValue}
+                    onHitStrengthChange={setHitStrength}
+                    onWoundValueChange={setWoundValue}
+                    onArmorSaveChange={setArmorSave}
+                    onWardSaveChange={setWardSave}
+                    onCalculate={handleCalculate}
+                    onRerollHitChange={setCombatRerollHit}
+                    onRerollWoundChange={setCombatRerollWound}
+                    onRerollArmorChange={setCombatRerollArmor}
+                    onRerollWardChange={setCombatRerollWard}
+                  />
+                ) : (
+                  <ThrowDiceCalculator
+                    diceCount={diceCount}
+                    attackersAc={attackersAc}
+                    defendersAc={defendersAc}
+                    throwHitStrength={throwHitStrength}
+                    targetToughness={targetToughness}
+                    throwArmorSave={throwArmorSave}
+                    throwWardSave={throwWardSave}
+                    poisonedAttack={poisonedAttack}
+                    predatoryFighter={predatoryFighter}
+                    predatoryFighterCount={predatoryFighterCount}
+                    multipleWoundsEnabled={multipleWoundsEnabled}
+                    multipleWoundsValue={multipleWoundsValue}
+                    errorMessage={errorMessage}
+                    hasThrowResults={hasThrowResults}
+                    throwResults={throwResults}
+                    throwDebug={throwDebug}
+                    rerollHitConfig={combatRerollHit}
+                    rerollWoundConfig={combatRerollWound}
+                    rerollArmorConfig={combatRerollArmor}
+                    rerollWardConfig={combatRerollWard}
+                    onDiceCountChange={setDiceCount}
+                    onAttackersAcChange={setAttackersAc}
+                    onDefendersAcChange={setDefendersAc}
+                    onThrowHitStrengthChange={setThrowHitStrength}
+                    onTargetToughnessChange={setTargetToughness}
+                    onThrowArmorSaveChange={setThrowArmorSave}
+                    onThrowWardSaveChange={setThrowWardSave}
+                    onPoisonedAttackChange={setPoisonedAttack}
+                    onPredatoryFighterChange={setPredatoryFighter}
+                    onPredatoryFighterCountChange={setPredatoryFighterCount}
+                    onMultipleWoundsChange={setMultipleWoundsEnabled}
+                    onMultipleWoundsValueChange={setMultipleWoundsValue}
+                    onCalculate={handleThrowCalculate}
+                    onRerollHitChange={setCombatRerollHit}
+                    onRerollWoundChange={setCombatRerollWound}
+                    onRerollArmorChange={setCombatRerollArmor}
+                    onRerollWardChange={setCombatRerollWard}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

@@ -158,6 +158,10 @@ export default function TrechGenericRollCalculator({
 
       <DebugPanel
         lines={[
+          { label: '+Dice', value: plusDice || '-' },
+          { label: '-Dice', value: minusDice || '-' },
+          { label: 'Positive modifier', value: positiveModifier || '-' },
+          { label: 'Negative modifier', value: negativeModifier || '-' },
           { label: 'Initial rolls', value: debug.rolls.join(', ') || '-' },
           { label: 'Selected rolls', value: debug.selectedRolls.join(', ') || '-' },
         ]}

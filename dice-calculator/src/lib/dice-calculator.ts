@@ -2,12 +2,15 @@ export interface DiceCalculatorInput {
   diceCount: number;
   hitValue: number;
   poisonedAttack: boolean;
+  predatoryFighterCount?: number;
   hitStrength: number;
   woundValue: number;
   armorSave: number;
   wardSave: number;
   rerollHitConfig?: RerollConfig;
   rerollWoundConfig?: RerollConfig;
+  rerollArmorConfig?: RerollConfig;
+  rerollWardConfig?: RerollConfig;
 }
 
 export interface DiceCalculatorOutput {
@@ -76,12 +79,15 @@ export const calculateAverages = ({
   diceCount,
   hitValue,
   poisonedAttack,
+  predatoryFighterCount = 0,
   hitStrength,
   woundValue,
   armorSave,
   wardSave,
   rerollHitConfig,
   rerollWoundConfig,
+  rerollArmorConfig,
+  rerollWardConfig,
 }: DiceCalculatorInput): DiceCalculatorOutput => {
   const hitProbabilities = getFaceProbabilitiesWithReroll(hitValue, rerollHitConfig);
   const poisonedAutoWoundChance = poisonedAttack ? hitProbabilities.sixChance : 0;
@@ -91,15 +97,22 @@ export const calculateAverages = ({
   const hitChance = poisonedAttack
     ? poisonedAutoWoundChance + nonPoisonHitChance
     : nonPoisonHitChance;
+  const cappedPredatory = Math.min(predatoryFighterCount, diceCount);
+  const extraAttacks = cappedPredatory * hitProbabilities.sixChance;
+  const totalAttacks = diceCount + extraAttacks;
   const woundChance = getFaceProbabilitiesWithReroll(woundValue, rerollWoundConfig).successChance;
   const armorSaveModifier = hitStrength - 3;
   const effectiveArmorSave = armorSave + armorSaveModifier;
-  const armorSaveChance = getFaceProbabilitiesWithReroll(effectiveArmorSave).successChance;
-  const wardSaveChance = getFaceProbabilitiesWithReroll(wardSave).successChance;
+  const armorSaveChance = effectiveArmorSave > 1
+    ? getFaceProbabilitiesWithReroll(effectiveArmorSave, rerollArmorConfig).successChance
+    : 0;
+  const wardSaveChance = wardSave > 1
+    ? getFaceProbabilitiesWithReroll(wardSave, rerollWardConfig).successChance
+    : 0;
 
-  const successfulHits = diceCount * hitChance;
-  const autoWounds = diceCount * poisonedAutoWoundChance;
-  const hitsToWound = poisonedAttack ? diceCount * nonPoisonHitChance : successfulHits;
+  const successfulHits = totalAttacks * hitChance;
+  const autoWounds = totalAttacks * poisonedAutoWoundChance;
+  const hitsToWound = poisonedAttack ? totalAttacks * nonPoisonHitChance : successfulHits;
   const successfulWounds = poisonedAttack
     ? autoWounds + hitsToWound * woundChance
     : successfulHits * woundChance;

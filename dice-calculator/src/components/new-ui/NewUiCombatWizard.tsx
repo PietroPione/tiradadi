@@ -11,6 +11,8 @@ type NewUiCombatWizardProps = {
   attackersAc: string;
   defendersAc: string;
   poisonedAttack: boolean;
+  predatoryFighter: boolean;
+  predatoryFighterCount: string;
   hitStrength: string;
   woundValue: string;
   targetToughness: string;
@@ -18,6 +20,8 @@ type NewUiCombatWizardProps = {
   wardSave: string;
   rerollHitConfig: RerollConfig;
   rerollWoundConfig: RerollConfig;
+  rerollArmorConfig: RerollConfig;
+  rerollWardConfig: RerollConfig;
   onNext: () => void;
   onBack: () => void;
   onCalculate: () => void;
@@ -26,6 +30,8 @@ type NewUiCombatWizardProps = {
   onAttackersAcChange: (value: string) => void;
   onDefendersAcChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
+  onPredatoryFighterChange: (value: boolean) => void;
+  onPredatoryFighterCountChange: (value: string) => void;
   onHitStrengthChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
   onTargetToughnessChange: (value: string) => void;
@@ -33,6 +39,8 @@ type NewUiCombatWizardProps = {
   onWardSaveChange: (value: string) => void;
   onRerollHitChange: (config: RerollConfig) => void;
   onRerollWoundChange: (config: RerollConfig) => void;
+  onRerollArmorChange: (config: RerollConfig) => void;
+  onRerollWardChange: (config: RerollConfig) => void;
 };
 
 const steps = [
@@ -51,6 +59,8 @@ export default function NewUiCombatWizard({
   attackersAc,
   defendersAc,
   poisonedAttack,
+  predatoryFighter,
+  predatoryFighterCount,
   hitStrength,
   woundValue,
   targetToughness,
@@ -58,6 +68,8 @@ export default function NewUiCombatWizard({
   wardSave,
   rerollHitConfig,
   rerollWoundConfig,
+  rerollArmorConfig,
+  rerollWardConfig,
   onNext,
   onBack,
   onCalculate,
@@ -66,6 +78,8 @@ export default function NewUiCombatWizard({
   onAttackersAcChange,
   onDefendersAcChange,
   onPoisonedAttackChange,
+  onPredatoryFighterChange,
+  onPredatoryFighterCountChange,
   onHitStrengthChange,
   onWoundValueChange,
   onTargetToughnessChange,
@@ -73,6 +87,8 @@ export default function NewUiCombatWizard({
   onWardSaveChange,
   onRerollHitChange,
   onRerollWoundChange,
+  onRerollArmorChange,
+  onRerollWardChange,
 }: NewUiCombatWizardProps) {
   const isLast = step === steps.length - 1;
 
@@ -136,6 +152,26 @@ export default function NewUiCombatWizard({
               />
               Poisoned Attack
             </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={predatoryFighter}
+                  onChange={(e) => onPredatoryFighterChange(e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                Predatory fighter
+              </label>
+              {predatoryFighter ? (
+                <InputField
+                  id="newCombatPredatoryCount"
+                  label="Predatory fighter count"
+                  value={predatoryFighterCount}
+                  min="0"
+                  onChange={onPredatoryFighterCountChange}
+                />
+              ) : null}
+            </div>
             <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
           </>
         ) : null}
@@ -179,22 +215,29 @@ export default function NewUiCombatWizard({
 
         {step === 4 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="newCombatArmorSave"
-              label="Armor Save (X+)"
-              value={armorSave}
-              min="1"
-              max="7"
-              onChange={onArmorSaveChange}
-            />
-            <InputField
-              id="newCombatWardSave"
-              label="Ward Save (X+)"
-              value={wardSave}
-              min="0"
-              max="7"
-              onChange={onWardSaveChange}
-            />
+            <div className="space-y-3">
+              <InputField
+                id="newCombatArmorSave"
+                label="Armor Save (X+)"
+                value={armorSave}
+                min="1"
+                max="7"
+                onChange={onArmorSaveChange}
+              />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+            </div>
+            <div className="space-y-3">
+              <InputField
+                id="newCombatWardSave"
+                label="Ward Save (X+)"
+                value={wardSave}
+                min="0"
+                max="7"
+                placeholder="Leave empty if none"
+                onChange={onWardSaveChange}
+              />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+            </div>
           </div>
         ) : null}
       </div>

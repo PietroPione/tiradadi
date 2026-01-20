@@ -1,6 +1,6 @@
 import Card from '@/components/ui/Card';
 
-type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'tc-generic' | 'tc-injury';
+type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'challenge' | 'tc-generic' | 'tc-injury';
 type GameSystem = 'wfb8' | 'trech';
 
 type PhaseSelectorProps = {
@@ -61,6 +61,13 @@ export default function PhaseSelector({
               className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
             >
               Break / Morale check
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelect('challenge')}
+              className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
+            >
+              Challenge simulator
             </button>
           </>
         ) : (

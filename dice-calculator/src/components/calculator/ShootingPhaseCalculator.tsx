@@ -5,12 +5,25 @@ import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/ca
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 
+const formatRerollLabel = (config: RerollConfig) => {
+  if (!config.enabled) {
+    return 'Off';
+  }
+  const base = `${config.mode} / ${config.scope}`;
+  if (config.scope === 'specific' && config.specificValues.trim()) {
+    return `${base} (${config.specificValues})`;
+  }
+  return base;
+};
+
 type ShootingPhaseCalculatorProps = {
   diceCount: string;
   mode: 'probability' | 'throw';
   ballisticSkill: string;
   poisonedAttack: boolean;
   autoHit: boolean;
+  multipleWoundsEnabled: boolean;
+  multipleWoundsValue: string;
   hitStrength: string;
   targetToughness: string;
   woundValue: string;
@@ -31,17 +44,26 @@ type ShootingPhaseCalculatorProps = {
   hasThrowResults: boolean;
   rerollHitConfig: RerollConfig;
   rerollWoundConfig: RerollConfig;
+  rerollArmorConfig: RerollConfig;
+  rerollWardConfig: RerollConfig;
   debug: {
     hitInitialRolls: number[];
     hitRerollRolls: number[];
     woundInitialRolls: number[];
     woundRerollRolls: number[];
+    armorInitialRolls: number[];
+    armorRerollRolls: number[];
+    wardInitialRolls: number[];
+    wardRerollRolls: number[];
+    multipleWoundsRolls: number[];
   };
   onDiceCountChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
   onBallisticSkillChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
   onAutoHitChange: (value: boolean) => void;
+  onMultipleWoundsChange: (value: boolean) => void;
+  onMultipleWoundsValueChange: (value: string) => void;
   onHitStrengthChange: (value: string) => void;
   onTargetToughnessChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
@@ -53,6 +75,8 @@ type ShootingPhaseCalculatorProps = {
   onBack: () => void;
   onRerollHitChange: (config: RerollConfig) => void;
   onRerollWoundChange: (config: RerollConfig) => void;
+  onRerollArmorChange: (config: RerollConfig) => void;
+  onRerollWardChange: (config: RerollConfig) => void;
 };
 
 export default function ShootingPhaseCalculator({
@@ -61,6 +85,8 @@ export default function ShootingPhaseCalculator({
   ballisticSkill,
   poisonedAttack,
   autoHit,
+  multipleWoundsEnabled,
+  multipleWoundsValue,
   hitStrength,
   targetToughness,
   woundValue,
@@ -75,12 +101,16 @@ export default function ShootingPhaseCalculator({
   hasThrowResults,
   rerollHitConfig,
   rerollWoundConfig,
+  rerollArmorConfig,
+  rerollWardConfig,
   debug,
   onDiceCountChange,
   onModeChange,
   onBallisticSkillChange,
   onPoisonedAttackChange,
   onAutoHitChange,
+  onMultipleWoundsChange,
+  onMultipleWoundsValueChange,
   onHitStrengthChange,
   onTargetToughnessChange,
   onWoundValueChange,
@@ -92,8 +122,34 @@ export default function ShootingPhaseCalculator({
   onBack,
   onRerollHitChange,
   onRerollWoundChange,
+  onRerollArmorChange,
+  onRerollWardChange,
 }: ShootingPhaseCalculatorProps) {
   const isProbability = mode === 'probability';
+  const modifiersLabel = [
+    modifiers.longRange ? 'Long range' : null,
+    modifiers.movement ? 'Movement' : null,
+    modifiers.skirmisherTarget ? 'Skirmisher target' : null,
+  ].filter(Boolean).join(', ') || '-';
+  const coverLabel = [
+    modifiers.lightCover ? 'Light cover' : null,
+    modifiers.hardCover ? 'Hard cover' : null,
+  ].filter(Boolean).join(', ') || '-';
+  const parsedHitStrength = Number.parseInt(hitStrength, 10);
+  const parsedArmorSave = Number.parseInt(armorSave, 10);
+  const effectiveArmorSave = Number.isNaN(parsedHitStrength) || Number.isNaN(parsedArmorSave)
+    ? '-'
+    : `${parsedArmorSave + (parsedHitStrength - 3)}+`;
+  const multipleWoundsLabel = multipleWoundsEnabled ? (multipleWoundsValue.trim() || '-') : 'Off';
+  const trimmedMultipleWounds = multipleWoundsValue.trim();
+  const isMultipleWoundsInvalid = multipleWoundsEnabled && trimmedMultipleWounds !== '' && (() => {
+    if (trimmedMultipleWounds.toLowerCase().startsWith('d')) {
+      const sides = Number.parseInt(trimmedMultipleWounds.slice(1), 10);
+      return Number.isNaN(sides) || sides < 2;
+    }
+    const value = Number.parseInt(trimmedMultipleWounds, 10);
+    return Number.isNaN(value) || value <= 0;
+  })();
   const renderResultNeeded = () => {
     if (Number.isNaN(resultNeeded)) {
       return {
@@ -310,6 +366,34 @@ export default function ShootingPhaseCalculator({
               />
             )}
           </div>
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+              <input
+                type="checkbox"
+                checked={multipleWoundsEnabled}
+                onChange={(e) => onMultipleWoundsChange(e.target.checked)}
+                className="h-4 w-4 border-2 border-zinc-900"
+              />
+              Multiple wounds
+            </label>
+            {multipleWoundsEnabled ? (
+              <InputField
+                id="shootingMultipleWoundsValue"
+                label="Multiple wounds value"
+                value={multipleWoundsValue}
+                type="text"
+                pattern="^(?:[dD]\\d+|\\d+)$"
+                title="Use a number or dX (e.g. 2 or d6)"
+                placeholder="Value or dX (e.g. 2 or d6)"
+                onChange={onMultipleWoundsValueChange}
+              />
+            ) : null}
+            {isMultipleWoundsInvalid ? (
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                Use a number (e.g. 2) or dX (e.g. d6).
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div>
@@ -322,22 +406,29 @@ export default function ShootingPhaseCalculator({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Savings</p>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="shootingArmorSave"
-              label="Armor Save (X+)"
-              value={armorSave}
-              min="1"
-              max="7"
-              onChange={onArmorSaveChange}
-            />
-            <InputField
-              id="shootingWardSave"
-              label="Ward Save (X+)"
-              value={wardSave}
-              min="0"
-              max="7"
-              onChange={onWardSaveChange}
-            />
+            <div className="space-y-3">
+              <InputField
+                id="shootingArmorSave"
+                label="Armor Save (X+)"
+                value={armorSave}
+                min="1"
+                max="7"
+                onChange={onArmorSaveChange}
+              />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+            </div>
+            <div className="space-y-3">
+              <InputField
+                id="shootingWardSave"
+                label="Ward Save (X+)"
+                value={wardSave}
+                min="0"
+                max="7"
+                placeholder="Leave empty if none"
+                onChange={onWardSaveChange}
+              />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+            </div>
           </div>
         </div>
       </div>
@@ -365,10 +456,29 @@ export default function ShootingPhaseCalculator({
 
       <DebugPanel
         lines={[
+          { label: 'Dice count', value: diceCount || '-' },
+          { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },
+          { label: 'Modifiers', value: modifiersLabel },
+          { label: 'Cover', value: coverLabel },
+          { label: 'Auto-hit', value: autoHit ? 'Yes' : 'No' },
+          { label: 'Poisoned', value: poisonedAttack ? 'Yes' : 'No' },
+          { label: 'Re-roll hit', value: formatRerollLabel(rerollHitConfig) },
           { label: 'Hit initial rolls', value: debug.hitInitialRolls.join(', ') || '-' },
           { label: 'Hit re-rolls', value: debug.hitRerollRolls.join(', ') || '-' },
           { label: 'Wound initial rolls', value: debug.woundInitialRolls.join(', ') || '-' },
           { label: 'Wound re-rolls', value: debug.woundRerollRolls.join(', ') || '-' },
+          { label: 'Re-roll wound', value: formatRerollLabel(rerollWoundConfig) },
+          { label: 'Multiple wounds', value: multipleWoundsLabel },
+          { label: 'Armor save', value: armorSave ? `${armorSave}+` : '-' },
+          { label: 'Effective armor', value: effectiveArmorSave },
+          { label: 'Armor initial rolls', value: debug.armorInitialRolls.join(', ') || '-' },
+          { label: 'Armor re-rolls', value: debug.armorRerollRolls.join(', ') || '-' },
+          { label: 'Re-roll armor', value: formatRerollLabel(rerollArmorConfig) },
+          { label: 'Ward save', value: wardSave.trim() ? `${wardSave}+` : '-' },
+          { label: 'Ward initial rolls', value: debug.wardInitialRolls.join(', ') || '-' },
+          { label: 'Ward re-rolls', value: debug.wardRerollRolls.join(', ') || '-' },
+          { label: 'Re-roll ward', value: formatRerollLabel(rerollWardConfig) },
+          { label: 'Multiple wounds rolls', value: debug.multipleWoundsRolls.join(', ') || '-' },
         ]}
       />
     </Card>
