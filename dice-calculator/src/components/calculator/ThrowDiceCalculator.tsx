@@ -1,8 +1,13 @@
 import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ActionBar from '@/components/ui/ActionBar';
 import InputField from '@/components/ui/InputField';
+import StatGrid from '@/components/ui/StatGrid';
 import ThrowDebugPanel, { type ThrowDebug } from '@/components/calculator/ThrowDebugPanel';
 import ThrowResultsCard, { type ThrowResults } from '@/components/calculator/ThrowResultsCard';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import CardHeader from '@/components/ui/CardHeader';
+import SectionBlock from '@/components/ui/SectionBlock';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -106,7 +111,7 @@ export default function ThrowDiceCalculator({
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <h2 className="text-lg font-semibold text-zinc-900">Throw dices</h2>
+      <CardHeader title="Throw dices" />
       <div className="mt-4 space-y-5">
         <InputField
           id="diceCountThrow"
@@ -115,24 +120,25 @@ export default function ThrowDiceCalculator({
           min="1"
           onChange={onDiceCountChange}
         />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To hit</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="attackersAc"
-              label="Attackers AC"
-              value={attackersAc}
-              min="1"
-              onChange={onAttackersAcChange}
-            />
-            <InputField
-              id="defendersAc"
-              label="Defenders AC"
-              value={defendersAc}
-              min="1"
-              onChange={onDefendersAcChange}
-            />
-          </div>
+        <SectionBlock title="To hit" contentClassName="mt-3">
+          <StatGrid
+            fields={[
+              {
+                id: 'attackersAc',
+                label: 'Attackers AC',
+                value: attackersAc,
+                min: '1',
+                onChange: onAttackersAcChange,
+              },
+              {
+                id: 'defendersAc',
+                label: 'Defenders AC',
+                value: defendersAc,
+                min: '1',
+                onChange: onDefendersAcChange,
+              },
+            ]}
+          />
           <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
             <input
               type="checkbox"
@@ -164,27 +170,28 @@ export default function ThrowDiceCalculator({
             ) : null}
           </div>
           <div className="mt-4">
-            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
+            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
           </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="throwHitStrength"
-              label="Hit Strength"
-              value={throwHitStrength}
-              min="1"
-              onChange={onThrowHitStrengthChange}
-            />
-            <InputField
-              id="targetToughness"
-              label="Target Toughness"
-              value={targetToughness}
-              min="1"
-              onChange={onTargetToughnessChange}
-            />
-          </div>
+        </SectionBlock>
+        <SectionBlock title="To wound" contentClassName="mt-3">
+          <StatGrid
+            fields={[
+              {
+                id: 'throwHitStrength',
+                label: 'Hit Strength',
+                value: throwHitStrength,
+                min: '1',
+                onChange: onThrowHitStrengthChange,
+              },
+              {
+                id: 'targetToughness',
+                label: 'Target Toughness',
+                value: targetToughness,
+                min: '1',
+                onChange: onTargetToughnessChange,
+              },
+            ]}
+          />
           <div className="mt-3 space-y-3">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
@@ -214,45 +221,52 @@ export default function ThrowDiceCalculator({
             ) : null}
           </div>
           <div className="mt-4">
-            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
+            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
           </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Savings</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+        </SectionBlock>
+        <SectionBlock title="Savings" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="space-y-3">
-              <InputField
-                id="throwArmorSave"
-                label="Armor Save (X+)"
-                value={throwArmorSave}
-                min="1"
-                max="7"
-                onChange={onThrowArmorSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'throwArmorSave',
+                    label: 'Armor Save (X+)',
+                    value: throwArmorSave,
+                    min: '1',
+                    max: '7',
+                    onChange: onThrowArmorSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
             </div>
             <div className="space-y-3">
-              <InputField
-                id="throwWardSave"
-                label="Ward Save (X+)"
-                value={throwWardSave}
-                min="0"
-                max="7"
-                placeholder="Leave empty if none"
-                onChange={onThrowWardSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'throwWardSave',
+                    label: 'Ward Save (X+)',
+                    value: throwWardSave,
+                    min: '0',
+                    max: '7',
+                    placeholder: 'Leave empty if none',
+                    onChange: onThrowWardSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
             </div>
           </div>
-        </div>
+        </SectionBlock>
       </div>
-      <button
-        type="button"
-        onClick={onCalculate}
-        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-      >
-        Calculate
-      </button>
+      <ActionBar>
+        <Button type="button" onClick={onCalculate} fullWidth size="lg">
+          Calculate
+        </Button>
+      </ActionBar>
       {errorMessage ? (
         <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
           {errorMessage}

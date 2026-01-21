@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react';
 import Card from '@/components/ui/Card';
+import ActionBar from '@/components/ui/ActionBar';
+import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
+import CardHeader from '@/components/ui/CardHeader';
+import SectionBlock from '@/components/ui/SectionBlock';
+import StatGrid from '@/components/ui/StatGrid';
 import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
@@ -9,11 +14,14 @@ import {
   getFaceProbabilitiesWithReroll,
   getHitTarget,
   getWoundTarget,
+  parseSpecificValues,
+  shouldRerollValue,
 } from '@/lib/roll-utils';
 
 const MAX_ROUNDS = 50;
 
-type ChallengerState = {
+type FighterState = {
+  name: string;
   ac: string;
   strength: string;
   resistance: string;
@@ -22,6 +30,8 @@ type ChallengerState = {
   attacks: string;
   armorSave: string;
   wardSave: string;
+  hitModifierPositive: string;
+  hitModifierNegative: string;
   poisonedAttack: boolean;
   predatoryFighter: boolean;
   predatoryFighterCount: string;
@@ -35,13 +45,20 @@ type ChallengerState = {
   rerollWard: RerollConfig;
 };
 
+type ChallengerState = FighterState & {
+  mountType: 'none' | 'normal' | 'monster';
+  mountBreathWeapon: boolean;
+  mountBreathStrength: string;
+  mount: FighterState;
+};
+
 type ParsedMultipleWounds = {
   type: 'fixed' | 'dice';
   value?: number;
   sides?: number;
 };
 
-type ParsedChallenger = {
+type ParsedFighter = {
   ac: number;
   strength: number;
   resistance: number;
@@ -50,6 +67,8 @@ type ParsedChallenger = {
   attacks: number;
   armorSave: number;
   wardSave: number;
+  hitModifierPositive: number;
+  hitModifierNegative: number;
   poisonedAttack: boolean;
   predatoryFighterCount: number;
   multipleWounds: ParsedMultipleWounds | null;
@@ -61,8 +80,49 @@ type ParsedChallenger = {
   rerollWard: RerollConfig;
 };
 
+type ParsedChallenger = {
+  rider: ParsedFighter;
+  mount: ParsedFighter | null;
+  mountType: 'none' | 'normal' | 'monster';
+  mountBreathWeapon: boolean;
+  mountBreathStrength: number | null;
+  defense: {
+    ac: number;
+    resistance: number;
+    wounds: number;
+    armorSave: number;
+    wardSave: number;
+    rerollArmor: RerollConfig;
+    rerollWard: RerollConfig;
+  };
+};
+
+type DefenderProfile = {
+  ac: number;
+  resistance: number;
+  armorSave: number;
+  wardSave: number;
+  rerollArmor: RerollConfig;
+  rerollWard: RerollConfig;
+};
+
+type FighterEntry = {
+  key: string;
+  label: string;
+  owner: 'one' | 'two';
+  fighter: ParsedFighter;
+  opponent: ParsedFighter;
+  defender: DefenderProfile;
+  attackType?: 'normal' | 'breath';
+  breathStrength?: number;
+  breathHits?: number;
+};
+
 type AttackDebug = {
   hitTarget: number;
+  baseHitTarget: number;
+  hitModifierPositive: number;
+  hitModifierNegative: number;
   woundTarget: number;
   effectiveArmorSave: number;
   poisonedAttack: boolean;
@@ -88,6 +148,7 @@ type AttackDebug = {
   wardInitialRolls: number[];
   wardRerollRolls: number[];
   wardRolls: number[];
+  breathRolls?: number[];
   multipleWoundsValue: string;
   multipleWoundsRolls: number[];
   hitChance?: number;
@@ -107,13 +168,23 @@ type AttackOutcome = {
   debug: AttackDebug;
 };
 
+type RoundAction = {
+  label: string;
+  sourceOwner: 'one' | 'two';
+  targetOwner: 'one' | 'two';
+  outcome: AttackOutcome;
+};
+
 type RoundLog = {
   round: number;
   orderLabel: string;
   startWounds: { one: number; two: number };
   endWounds: { one: number; two: number };
-  challengerOne: AttackOutcome;
-  challengerTwo: AttackOutcome;
+  actions: RoundAction[];
+  summary: {
+    oneDamage: number;
+    twoDamage: number;
+  };
 };
 
 type ChallengeSimulatorProps = {
@@ -127,7 +198,8 @@ const buildDefaultReroll = (): RerollConfig => ({
   specificValues: '',
 });
 
-const buildDefaultChallenger = (): ChallengerState => ({
+const buildDefaultFighter = (): FighterState => ({
+  name: '',
   ac: '4',
   strength: '3',
   resistance: '3',
@@ -136,6 +208,8 @@ const buildDefaultChallenger = (): ChallengerState => ({
   attacks: '1',
   armorSave: '4',
   wardSave: '0',
+  hitModifierPositive: '0',
+  hitModifierNegative: '0',
   poisonedAttack: false,
   predatoryFighter: false,
   predatoryFighterCount: '0',
@@ -147,6 +221,14 @@ const buildDefaultChallenger = (): ChallengerState => ({
   rerollWound: buildDefaultReroll(),
   rerollArmor: buildDefaultReroll(),
   rerollWard: buildDefaultReroll(),
+});
+
+const buildDefaultChallenger = (): ChallengerState => ({
+  ...buildDefaultFighter(),
+  mountType: 'none',
+  mountBreathWeapon: false,
+  mountBreathStrength: '3',
+  mount: buildDefaultFighter(),
 });
 
 const formatRerollLabel = (config: RerollConfig) => {
@@ -179,9 +261,64 @@ const parseMultipleWoundsValue = (rawValue: string): ParsedMultipleWounds | null
   return { type: 'fixed', value: fixed };
 };
 
+const parseFighter = (fighter: FighterState): ParsedFighter | null => {
+  const wardSaveValue = fighter.wardSave.trim() === '' ? '0' : fighter.wardSave;
+  const parsed = {
+    ac: Number.parseInt(fighter.ac, 10),
+    strength: Number.parseInt(fighter.strength, 10),
+    resistance: Number.parseInt(fighter.resistance, 10),
+    wounds: Number.parseInt(fighter.wounds, 10),
+    initiative: Number.parseInt(fighter.initiative, 10),
+    attacks: Number.parseInt(fighter.attacks, 10),
+    armorSave: Number.parseInt(fighter.armorSave, 10),
+    wardSave: Number.parseInt(wardSaveValue, 10),
+    hitModifierPositive: Number.parseInt(fighter.hitModifierPositive || '0', 10),
+    hitModifierNegative: Number.parseInt(fighter.hitModifierNegative || '0', 10),
+    predatoryFighterCount: fighter.predatoryFighter
+      ? Number.parseInt(fighter.predatoryFighterCount, 10)
+      : 0,
+  };
+  const multipleWounds = fighter.multipleWoundsEnabled
+    ? parseMultipleWoundsValue(fighter.multipleWoundsValue)
+    : null;
+
+  if (
+    Number.isNaN(parsed.ac)
+    || Number.isNaN(parsed.strength)
+    || Number.isNaN(parsed.resistance)
+    || Number.isNaN(parsed.wounds)
+    || parsed.wounds <= 0
+    || Number.isNaN(parsed.initiative)
+    || Number.isNaN(parsed.attacks)
+    || parsed.attacks <= 0
+    || Number.isNaN(parsed.armorSave)
+    || Number.isNaN(parsed.wardSave)
+    || Number.isNaN(parsed.hitModifierPositive)
+    || Number.isNaN(parsed.hitModifierNegative)
+    || Number.isNaN(parsed.predatoryFighterCount)
+    || parsed.predatoryFighterCount < 0
+    || (fighter.multipleWoundsEnabled && !multipleWounds)
+  ) {
+    return null;
+  }
+
+  return {
+    ...parsed,
+    poisonedAttack: fighter.poisonedAttack,
+    predatoryFighterCount: Math.min(parsed.predatoryFighterCount, parsed.attacks),
+    multipleWounds,
+    alwaysStrikeFirst: fighter.alwaysStrikeFirst,
+    alwaysStrikeLast: fighter.alwaysStrikeLast,
+    rerollHit: fighter.rerollHit,
+    rerollWound: fighter.rerollWound,
+    rerollArmor: fighter.rerollArmor,
+    rerollWard: fighter.rerollWard,
+  };
+};
+
 const resolveHitRerollConfig = (
-  attacker: ParsedChallenger,
-  defender: ParsedChallenger,
+  attacker: ParsedFighter,
+  defender: ParsedFighter,
 ): { config: RerollConfig; asfBonus: boolean } => {
   if (
     attacker.alwaysStrikeFirst
@@ -204,108 +341,263 @@ const resolveHitRerollConfig = (
   return { config: attacker.rerollHit, asfBonus: false };
 };
 
-const resolveOrder = (
-  challengerOne: ParsedChallenger,
-  challengerTwo: ParsedChallenger,
-): { order: 'one' | 'two' | 'simultaneous'; label: string } => {
-  const oneASF = challengerOne.alwaysStrikeFirst;
-  const twoASF = challengerTwo.alwaysStrikeFirst;
-  const oneASL = challengerOne.alwaysStrikeLast;
-  const twoASL = challengerTwo.alwaysStrikeLast;
+const buildAttackOrder = (entries: FighterEntry[]) => {
+  const priorityFor = (fighter: ParsedFighter) => {
+    if (fighter.alwaysStrikeFirst) {
+      return 0;
+    }
+    if (fighter.alwaysStrikeLast) {
+      return 2;
+    }
+    return 1;
+  };
 
-  if ((oneASF && twoASF) || (oneASL && twoASL)) {
-    return { order: 'simultaneous', label: 'Same strike rule' };
-  }
-  if (oneASF && twoASL) {
-    return { order: 'one', label: 'Challenger 1 strikes first (ASF vs ASL)' };
-  }
-  if (twoASF && oneASL) {
-    return { order: 'two', label: 'Challenger 2 strikes first (ASF vs ASL)' };
-  }
-  if (oneASF && !twoASF) {
-    return { order: 'one', label: 'Challenger 1 strikes first (ASF)' };
-  }
-  if (twoASF && !oneASF) {
-    return { order: 'two', label: 'Challenger 2 strikes first (ASF)' };
-  }
-  if (oneASL && !twoASL) {
-    return { order: 'two', label: 'Challenger 2 strikes first (ASL)' };
-  }
-  if (twoASL && !oneASL) {
-    return { order: 'one', label: 'Challenger 1 strikes first (ASL)' };
-  }
-  if (challengerOne.initiative === challengerTwo.initiative) {
-    return { order: 'simultaneous', label: 'Same initiative' };
-  }
-  if (challengerOne.initiative > challengerTwo.initiative) {
-    return { order: 'one', label: 'Challenger 1 strikes first (initiative)' };
-  }
-  return { order: 'two', label: 'Challenger 2 strikes first (initiative)' };
+  const sorted = [...entries].sort((a, b) => {
+    const priorityA = priorityFor(a.fighter);
+    const priorityB = priorityFor(b.fighter);
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    if (a.fighter.initiative !== b.fighter.initiative) {
+      return b.fighter.initiative - a.fighter.initiative;
+    }
+    return a.key.localeCompare(b.key);
+  });
+
+  const groups: FighterEntry[][] = [];
+  sorted.forEach((entry) => {
+    const priority = priorityFor(entry.fighter);
+    const lastGroup = groups[groups.length - 1];
+    if (
+      lastGroup
+      && priorityFor(lastGroup[0].fighter) === priority
+      && lastGroup[0].fighter.initiative === entry.fighter.initiative
+    ) {
+      lastGroup.push(entry);
+    } else {
+      groups.push([entry]);
+    }
+  });
+
+  const label = groups
+    .map((group) => {
+      const fighter = group[0].fighter;
+      const prefix = fighter.alwaysStrikeFirst
+        ? 'ASF'
+        : fighter.alwaysStrikeLast
+          ? 'ASL'
+          : 'I';
+      return `${prefix} ${fighter.initiative}`;
+    })
+    .join(' -> ');
+
+  return { groups, label: label || '-' };
 };
 
-const buildSkippedOutcome = (multipleWoundsValue: string): AttackOutcome => ({
-  successfulHits: 0,
-  successfulWounds: 0,
-  poisonedAutoWounds: 0,
-  failedArmorSaves: 0,
-  failedWardSaves: 0,
-  finalDamage: 0,
-  debug: {
-    hitTarget: 0,
-    woundTarget: 0,
-    effectiveArmorSave: 0,
-    poisonedAttack: false,
-    predatoryCount: 0,
-    predatorySixes: 0,
-    totalAttacks: 0,
+const getExtendedHitProbabilities = (target: number, config: RerollConfig) => {
+  if (target <= 6) {
+    return getFaceProbabilitiesWithReroll(target, config);
+  }
+  const followUpTarget = target - 3;
+  const followUpChance = target >= 10 ? 0 : Math.max(0, (7 - followUpTarget) / 6);
+  const specificValues = new Set(parseSpecificValues(config.specificValues));
+  let rerollChance = 0;
+  const rerollChanceByValue: number[] = [];
+  for (let value = 1; value <= 6; value += 1) {
+    const successProb = value === 6 ? followUpChance : 0;
+    const failureProb = 1 - successProb;
+    let rerollProb = 0;
+    if (config.enabled) {
+      const inScope = config.scope === 'all' || specificValues.has(value);
+      if (inScope) {
+        rerollProb = config.mode === 'failed' ? failureProb : successProb;
+      }
+    }
+    rerollChanceByValue[value] = (1 / 6) * rerollProb;
+    rerollChance += rerollChanceByValue[value];
+  }
+  const probabilities: number[] = [];
+  for (let value = 1; value <= 6; value += 1) {
+    const baseChance = 1 / 6 - (rerollChanceByValue[value] ?? 0);
+    probabilities[value] = baseChance + rerollChance / 6;
+  }
+  const sixChance = probabilities[6] ?? 0;
+  const successChance = sixChance * followUpChance;
+  return { successChance, sixChance };
+};
+
+const resolveHitRolls = (
+  initialRolls: number[],
+  hitTarget: number,
+  config: RerollConfig,
+) => {
+  if (hitTarget <= 6) {
+    const rerollResult = applyRerollWithDebug(initialRolls, hitTarget, config);
+    const successCount = rerollResult.finalRolls.filter((roll) => roll >= hitTarget).length;
+    return {
+      finalRolls: rerollResult.finalRolls,
+      rerollRolls: rerollResult.rerollRolls,
+      successCount,
+    };
+  }
+
+  const followUpTarget = hitTarget - 3;
+  const specificValues = new Set(parseSpecificValues(config.specificValues));
+  const rerollRolls: number[] = [];
+  const finalRolls: number[] = [];
+  let successCount = 0;
+
+  initialRolls.forEach((roll) => {
+    let initialRoll = roll;
+    let followUpRoll = 0;
+    if (initialRoll === 6) {
+      followUpRoll = Math.floor(Math.random() * 6) + 1;
+    }
+    let attemptSuccess = initialRoll === 6 && followUpRoll >= followUpTarget;
+    if (shouldRerollValue(initialRoll, attemptSuccess, config, specificValues)) {
+      initialRoll = Math.floor(Math.random() * 6) + 1;
+      rerollRolls.push(initialRoll);
+      followUpRoll = initialRoll === 6 ? Math.floor(Math.random() * 6) + 1 : 0;
+      attemptSuccess = initialRoll === 6 && followUpRoll >= followUpTarget;
+    }
+    finalRolls.push(initialRoll);
+    if (attemptSuccess) {
+      successCount += 1;
+    }
+  });
+
+  return { finalRolls, rerollRolls, successCount };
+};
+
+const computeBreathAttack = (
+  attacker: ParsedFighter,
+  defender: DefenderProfile,
+  hits: number,
+  breathStrength: number,
+  breathRolls: number[],
+): AttackOutcome => {
+  const woundTarget = getWoundTarget(breathStrength, defender.resistance);
+  const woundInitialRolls = Array.from({ length: hits }, () => Math.floor(Math.random() * 6) + 1);
+  const woundRerollResult = applyRerollWithDebug(woundInitialRolls, woundTarget, attacker.rerollWound);
+  const woundRolls = woundRerollResult.finalRolls;
+  const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
+
+  const effectiveArmorSave = defender.armorSave + (breathStrength - 3);
+  let failedArmorSaves = woundSuccesses;
+  let armorRolls: number[] = [];
+  let armorInitialRolls: number[] = [];
+  let armorRerollRolls: number[] = [];
+  if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
+    armorInitialRolls = Array.from({ length: woundSuccesses }, () => Math.floor(Math.random() * 6) + 1);
+    const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, defender.rerollArmor);
+    armorRerollRolls = armorRerollResult.rerollRolls;
+    armorRolls = armorRerollResult.finalRolls;
+    const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
+    failedArmorSaves = woundSuccesses - armorSuccesses;
+  }
+
+  let failedWardSaves = failedArmorSaves;
+  let wardRolls: number[] = [];
+  let wardInitialRolls: number[] = [];
+  let wardRerollRolls: number[] = [];
+  if (defender.wardSave > 1 && defender.wardSave <= 6) {
+    wardInitialRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
+    const wardRerollResult = applyRerollWithDebug(wardInitialRolls, defender.wardSave, defender.rerollWard);
+    wardRerollRolls = wardRerollResult.rerollRolls;
+    wardRolls = wardRerollResult.finalRolls;
+    const wardSuccesses = wardRolls.filter((roll) => roll >= defender.wardSave).length;
+    failedWardSaves = failedArmorSaves - wardSuccesses;
+  }
+
+  let finalDamage = failedWardSaves;
+  let multipleWoundsRolls: number[] = [];
+  if (attacker.multipleWounds) {
+    if (attacker.multipleWounds.type === 'fixed') {
+      finalDamage = failedWardSaves * (attacker.multipleWounds.value ?? 1);
+    } else {
+      const sides = attacker.multipleWounds.sides ?? 0;
+      multipleWoundsRolls = Array.from({ length: failedWardSaves }, () => Math.floor(Math.random() * sides) + 1);
+      finalDamage = multipleWoundsRolls.reduce((sum, roll) => sum + roll, 0);
+    }
+  }
+
+  return {
+    successfulHits: hits,
+    successfulWounds: woundSuccesses,
     poisonedAutoWounds: 0,
-    nonPoisonHits: 0,
-    rerollHitLabel: 'Off',
-    rerollWoundLabel: 'Off',
-    rerollArmorLabel: 'Off',
-    rerollWardLabel: 'Off',
-    asfBonusReroll: false,
-    hitInitialRolls: [],
-    hitRerollRolls: [],
-    hitRolls: [],
-    woundInitialRolls: [],
-    woundRerollRolls: [],
-    woundRolls: [],
-    armorInitialRolls: [],
-    armorRerollRolls: [],
-    armorRolls: [],
-    wardInitialRolls: [],
-    wardRerollRolls: [],
-    wardRolls: [],
-    multipleWoundsValue,
-    multipleWoundsRolls: [],
-    skipped: true,
-  },
-});
+    failedArmorSaves,
+    failedWardSaves,
+    finalDamage,
+    debug: {
+      hitTarget: 0,
+      baseHitTarget: 0,
+      hitModifierPositive: 0,
+      hitModifierNegative: 0,
+      woundTarget,
+      effectiveArmorSave,
+      poisonedAttack: false,
+      predatoryCount: 0,
+      predatorySixes: 0,
+      totalAttacks: hits,
+      poisonedAutoWounds: 0,
+      nonPoisonHits: hits,
+      rerollHitLabel: 'Auto-hit',
+      rerollWoundLabel: formatRerollLabel(attacker.rerollWound),
+      rerollArmorLabel: formatRerollLabel(defender.rerollArmor),
+      rerollWardLabel: formatRerollLabel(defender.rerollWard),
+      asfBonusReroll: false,
+      hitInitialRolls: [],
+      hitRerollRolls: [],
+      hitRolls: [],
+      woundInitialRolls,
+      woundRerollRolls: woundRerollResult.rerollRolls,
+      woundRolls,
+      armorInitialRolls,
+      armorRerollRolls,
+      armorRolls,
+      wardInitialRolls,
+      wardRerollRolls,
+      wardRolls,
+      breathRolls,
+      multipleWoundsValue: attacker.multipleWounds
+        ? (attacker.multipleWounds.type === 'dice'
+          ? `d${attacker.multipleWounds.sides}`
+          : `${attacker.multipleWounds.value}`)
+        : '',
+      multipleWoundsRolls,
+    },
+  };
+};
 
 const computeProbabilityAttack = (
-  attacker: ParsedChallenger,
-  defender: ParsedChallenger,
+  attacker: ParsedFighter,
+  defender: DefenderProfile,
   asfBonus: { config: RerollConfig; asfBonus: boolean },
 ): AttackOutcome => {
-  const hitTarget = getHitTarget(attacker.ac, defender.ac);
+  const baseHitTarget = getHitTarget(attacker.ac, defender.ac);
+  const rawHitTarget = baseHitTarget + attacker.hitModifierNegative - attacker.hitModifierPositive;
+  const hitTarget = Math.max(2, rawHitTarget);
   const woundTarget = getWoundTarget(attacker.strength, defender.resistance);
-  const hitProbabilities = getFaceProbabilitiesWithReroll(hitTarget, asfBonus.config);
-  const poisonedAutoWoundChance = attacker.poisonedAttack ? hitProbabilities.sixChance : 0;
-  const nonPoisonHitChance = attacker.poisonedAttack
+  const hitProbabilities = getExtendedHitProbabilities(hitTarget, asfBonus.config);
+  const poisonActive = attacker.poisonedAttack && hitTarget <= 6;
+  const predatoryActive = hitTarget <= 6;
+  const poisonedAutoWoundChance = poisonActive ? hitProbabilities.sixChance : 0;
+  const nonPoisonHitChance = poisonActive
     ? Math.max(0, hitProbabilities.successChance - hitProbabilities.sixChance)
     : hitProbabilities.successChance;
-  const cappedPredatory = Math.min(attacker.predatoryFighterCount, attacker.attacks);
+  const cappedPredatory = predatoryActive
+    ? Math.min(attacker.predatoryFighterCount, attacker.attacks)
+    : 0;
   const extraAttacks = cappedPredatory * hitProbabilities.sixChance;
   const totalAttacks = attacker.attacks + extraAttacks;
   const woundChance = getFaceProbabilitiesWithReroll(woundTarget, attacker.rerollWound).successChance;
   const armorSaveModifier = attacker.strength - 3;
   const effectiveArmorSave = defender.armorSave + armorSaveModifier;
   const armorSaveChance = effectiveArmorSave > 1
-    ? getFaceProbabilitiesWithReroll(effectiveArmorSave, attacker.rerollArmor).successChance
+    ? getFaceProbabilitiesWithReroll(effectiveArmorSave, defender.rerollArmor).successChance
     : 0;
   const wardSaveChance = defender.wardSave > 1
-    ? getFaceProbabilitiesWithReroll(defender.wardSave, attacker.rerollWard).successChance
+    ? getFaceProbabilitiesWithReroll(defender.wardSave, defender.rerollWard).successChance
     : 0;
 
   const successfulHits = totalAttacks * hitProbabilities.successChance;
@@ -332,18 +624,21 @@ const computeProbabilityAttack = (
     finalDamage: parseFloat(finalDamage.toFixed(2)),
     debug: {
       hitTarget,
+      baseHitTarget,
+      hitModifierPositive: attacker.hitModifierPositive,
+      hitModifierNegative: attacker.hitModifierNegative,
       woundTarget,
       effectiveArmorSave,
-      poisonedAttack: attacker.poisonedAttack,
+      poisonedAttack: poisonActive,
       predatoryCount: cappedPredatory,
-      predatorySixes: parseFloat((extraAttacks || 0).toFixed(2)),
+      predatorySixes: predatoryActive ? parseFloat((extraAttacks || 0).toFixed(2)) : 0,
       totalAttacks: parseFloat(totalAttacks.toFixed(2)),
       poisonedAutoWounds: parseFloat(poisonedAutoWounds.toFixed(2)),
       nonPoisonHits: parseFloat(hitsToWound.toFixed(2)),
       rerollHitLabel: formatRerollLabel(asfBonus.config),
       rerollWoundLabel: formatRerollLabel(attacker.rerollWound),
-      rerollArmorLabel: formatRerollLabel(attacker.rerollArmor),
-      rerollWardLabel: formatRerollLabel(attacker.rerollWard),
+      rerollArmorLabel: formatRerollLabel(defender.rerollArmor),
+      rerollWardLabel: formatRerollLabel(defender.rerollWard),
       asfBonusReroll: asfBonus.asfBonus,
       hitInitialRolls: [],
       hitRerollRolls: [],
@@ -372,45 +667,53 @@ const computeProbabilityAttack = (
 };
 
 const computeThrowAttack = (
-  attacker: ParsedChallenger,
-  defender: ParsedChallenger,
+  attacker: ParsedFighter,
+  defender: DefenderProfile,
   asfBonus: { config: RerollConfig; asfBonus: boolean },
 ): AttackOutcome => {
-  const hitTarget = getHitTarget(attacker.ac, defender.ac);
+  const baseHitTarget = getHitTarget(attacker.ac, defender.ac);
+  const rawHitTarget = baseHitTarget + attacker.hitModifierNegative - attacker.hitModifierPositive;
+  const hitTarget = Math.max(2, rawHitTarget);
   const hitInitialRolls = Array.from({ length: attacker.attacks }, () => Math.floor(Math.random() * 6) + 1);
-  const hitRerollResult = applyRerollWithDebug(hitInitialRolls, hitTarget, asfBonus.config);
+  const hitRerollResult = resolveHitRolls(hitInitialRolls, hitTarget, asfBonus.config);
   const hitRolls = hitRerollResult.finalRolls;
-  const predatoryCount = Math.min(attacker.predatoryFighterCount, attacker.attacks);
+  const predatoryActive = hitTarget <= 6;
+  const predatoryCount = predatoryActive
+    ? Math.min(attacker.predatoryFighterCount, attacker.attacks)
+    : 0;
   const predatorySixes = predatoryCount
     ? hitRolls.slice(0, predatoryCount).filter((roll) => roll === 6).length
     : 0;
   let extraHitInitialRolls: number[] = [];
   let extraHitRerolls: number[] = [];
   let extraHitRolls: number[] = [];
+  let extraHitSuccesses = 0;
   if (predatorySixes > 0) {
     extraHitInitialRolls = Array.from({ length: predatorySixes }, () => Math.floor(Math.random() * 6) + 1);
-    const extraHitRerollResult = applyRerollWithDebug(extraHitInitialRolls, hitTarget, asfBonus.config);
+    const extraHitRerollResult = resolveHitRolls(extraHitInitialRolls, hitTarget, asfBonus.config);
     extraHitRerolls = extraHitRerollResult.rerollRolls;
     extraHitRolls = extraHitRerollResult.finalRolls;
+    extraHitSuccesses = extraHitRerollResult.successCount;
   }
   const combinedHitInitialRolls = hitInitialRolls.concat(extraHitInitialRolls);
   const combinedHitRerollRolls = hitRerollResult.rerollRolls.concat(extraHitRerolls);
   const combinedHitRolls = hitRolls.concat(extraHitRolls);
   const totalAttacks = attacker.attacks + predatorySixes;
-  const poisonedAutoWounds = attacker.poisonedAttack
+  const poisonActive = attacker.poisonedAttack && hitTarget <= 6;
+  const poisonedAutoWounds = poisonActive
     ? combinedHitRolls.filter((roll) => roll === 6).length
     : 0;
-  const nonPoisonHits = attacker.poisonedAttack
+  const nonPoisonHits = poisonActive
     ? combinedHitRolls.filter((roll) => roll >= hitTarget && roll !== 6).length
-    : combinedHitRolls.filter((roll) => roll >= hitTarget).length;
-  const hitSuccesses = poisonedAutoWounds + nonPoisonHits;
+    : hitRerollResult.successCount + extraHitSuccesses;
+  const hitSuccesses = poisonActive ? (poisonedAutoWounds + nonPoisonHits) : nonPoisonHits;
 
   const woundTarget = getWoundTarget(attacker.strength, defender.resistance);
   const woundInitialRolls = Array.from({ length: nonPoisonHits }, () => Math.floor(Math.random() * 6) + 1);
   const woundRerollResult = applyRerollWithDebug(woundInitialRolls, woundTarget, attacker.rerollWound);
   const woundRolls = woundRerollResult.finalRolls;
   const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
-  const totalWounds = attacker.poisonedAttack
+  const totalWounds = poisonActive
     ? poisonedAutoWounds + woundSuccesses
     : woundSuccesses;
 
@@ -421,7 +724,7 @@ const computeThrowAttack = (
   let armorRerollRolls: number[] = [];
   if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
     armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
-    const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, attacker.rerollArmor);
+    const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, defender.rerollArmor);
     armorRerollRolls = armorRerollResult.rerollRolls;
     armorRolls = armorRerollResult.finalRolls;
     const armorSuccesses = armorRolls.filter((roll) => roll >= effectiveArmorSave).length;
@@ -434,7 +737,7 @@ const computeThrowAttack = (
   let wardRerollRolls: number[] = [];
   if (defender.wardSave > 1 && defender.wardSave <= 6) {
     wardInitialRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
-    const wardRerollResult = applyRerollWithDebug(wardInitialRolls, defender.wardSave, attacker.rerollWard);
+    const wardRerollResult = applyRerollWithDebug(wardInitialRolls, defender.wardSave, defender.rerollWard);
     wardRerollRolls = wardRerollResult.rerollRolls;
     wardRolls = wardRerollResult.finalRolls;
     const wardSuccesses = wardRolls.filter((roll) => roll >= defender.wardSave).length;
@@ -462,9 +765,12 @@ const computeThrowAttack = (
     finalDamage,
     debug: {
       hitTarget,
+      baseHitTarget,
+      hitModifierPositive: attacker.hitModifierPositive,
+      hitModifierNegative: attacker.hitModifierNegative,
       woundTarget,
       effectiveArmorSave,
-      poisonedAttack: attacker.poisonedAttack,
+      poisonedAttack: poisonActive,
       predatoryCount,
       predatorySixes,
       totalAttacks,
@@ -472,8 +778,8 @@ const computeThrowAttack = (
       nonPoisonHits,
       rerollHitLabel: formatRerollLabel(asfBonus.config),
       rerollWoundLabel: formatRerollLabel(attacker.rerollWound),
-      rerollArmorLabel: formatRerollLabel(attacker.rerollArmor),
-      rerollWardLabel: formatRerollLabel(attacker.rerollWard),
+      rerollArmorLabel: formatRerollLabel(defender.rerollArmor),
+      rerollWardLabel: formatRerollLabel(defender.rerollWard),
       asfBonusReroll: asfBonus.asfBonus,
       hitInitialRolls: combinedHitInitialRolls,
       hitRerollRolls: combinedHitRerollRolls,
@@ -497,17 +803,21 @@ const computeThrowAttack = (
   };
 };
 
-const ChallengerForm = ({
-  title,
-  challenger,
+const FighterFields = ({
+  fighter,
   onChange,
+  idPrefix,
+  nameLabel,
+  showNameField = true,
 }: {
-  title: string;
-  challenger: ChallengerState;
-  onChange: (next: ChallengerState) => void;
+  fighter: FighterState;
+  onChange: (next: FighterState) => void;
+  idPrefix: string;
+  nameLabel: string;
+  showNameField?: boolean;
 }) => {
-  const multipleWoundsValue = challenger.multipleWoundsValue.trim();
-  const multipleWoundsInvalid = challenger.multipleWoundsEnabled && multipleWoundsValue !== '' && (() => {
+  const multipleWoundsValue = fighter.multipleWoundsValue.trim();
+  const multipleWoundsInvalid = fighter.multipleWoundsEnabled && multipleWoundsValue !== '' && (() => {
     if (multipleWoundsValue.toLowerCase().startsWith('d')) {
       const sides = Number.parseInt(multipleWoundsValue.slice(1), 10);
       return Number.isNaN(sides) || sides < 2;
@@ -517,79 +827,111 @@ const ChallengerForm = ({
   })();
 
   return (
-    <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-        <InputField
-          id={`${title}-ac`}
-          label="AC"
-          value={challenger.ac}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, ac: value })}
-        />
-        <InputField
-          id={`${title}-strength`}
-          label="Strength"
-          value={challenger.strength}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, strength: value })}
-        />
-        <InputField
-          id={`${title}-resistance`}
-          label="Resistance"
-          value={challenger.resistance}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, resistance: value })}
-        />
-        <InputField
-          id={`${title}-wounds`}
-          label="Wounds"
-          value={challenger.wounds}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, wounds: value })}
-        />
-        <InputField
-          id={`${title}-initiative`}
-          label="Initiative"
-          value={challenger.initiative}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, initiative: value })}
-        />
-        <InputField
-          id={`${title}-attacks`}
-          label="Attacks"
-          value={challenger.attacks}
-          min="1"
-          onChange={(value) => onChange({ ...challenger, attacks: value })}
-        />
-        <InputField
-          id={`${title}-armor`}
-          label="Armor Save (X+)"
-          value={challenger.armorSave}
-          min="1"
-          max="7"
-          onChange={(value) => onChange({ ...challenger, armorSave: value })}
-        />
-        <InputField
-          id={`${title}-ward`}
-          label="Ward Save (X+)"
-          value={challenger.wardSave}
-          min="0"
-          max="7"
-          placeholder="Leave empty if none"
-          onChange={(value) => onChange({ ...challenger, wardSave: value })}
-        />
-      </div>
+    <>
+      {showNameField ? (
+        <div className="mt-4">
+          <InputField
+            id={`${idPrefix}-name`}
+            label={nameLabel}
+            value={fighter.name}
+            type="text"
+            placeholder={nameLabel}
+            onChange={(value) => onChange({ ...fighter, name: value })}
+          />
+        </div>
+      ) : null}
+      <StatGrid
+        fields={[
+          {
+            id: `${idPrefix}-ac`,
+            label: 'AC',
+            value: fighter.ac,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, ac: value }),
+          },
+          {
+            id: `${idPrefix}-strength`,
+            label: 'Strength',
+            value: fighter.strength,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, strength: value }),
+          },
+          {
+            id: `${idPrefix}-resistance`,
+            label: 'Resistance',
+            value: fighter.resistance,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, resistance: value }),
+          },
+          {
+            id: `${idPrefix}-wounds`,
+            label: 'Wounds',
+            value: fighter.wounds,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, wounds: value }),
+          },
+          {
+            id: `${idPrefix}-initiative`,
+            label: 'Initiative',
+            value: fighter.initiative,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, initiative: value }),
+          },
+          {
+            id: `${idPrefix}-attacks`,
+            label: 'Attacks',
+            value: fighter.attacks,
+            min: '1',
+            onChange: (value) => onChange({ ...fighter, attacks: value }),
+          },
+          {
+            id: `${idPrefix}-armor`,
+            label: 'Armor Save (X+)',
+            value: fighter.armorSave,
+            min: '1',
+            max: '7',
+            onChange: (value) => onChange({ ...fighter, armorSave: value }),
+          },
+          {
+            id: `${idPrefix}-ward`,
+            label: 'Ward Save (X+)',
+            value: fighter.wardSave,
+            min: '0',
+            max: '7',
+            placeholder: 'Leave empty if none',
+            onChange: (value) => onChange({ ...fighter, wardSave: value }),
+          },
+        ]}
+        className="mt-4"
+      />
 
       <div className="mt-5 space-y-5">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-700">Special rules</p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <SectionBlock title="Hit modifiers" variant="bar" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <InputField
+              id={`${idPrefix}-hit-mod-pos`}
+              label="Positive modifier"
+              value={fighter.hitModifierPositive}
+              min="0"
+              onChange={(value) => onChange({ ...fighter, hitModifierPositive: value })}
+            />
+            <InputField
+              id={`${idPrefix}-hit-mod-neg`}
+              label="Negative modifier"
+              value={fighter.hitModifierNegative}
+              min="0"
+              onChange={(value) => onChange({ ...fighter, hitModifierNegative: value })}
+            />
+          </div>
+        </SectionBlock>
+
+        <SectionBlock title="Special rules" variant="bar" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
-                checked={challenger.poisonedAttack}
-                onChange={(e) => onChange({ ...challenger, poisonedAttack: e.target.checked })}
+                checked={fighter.poisonedAttack}
+                onChange={(e) => onChange({ ...fighter, poisonedAttack: e.target.checked })}
                 className="h-4 w-4 border-2 border-zinc-900"
               />
               Poisoned Attack
@@ -597,26 +939,26 @@ const ChallengerForm = ({
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
-                checked={challenger.predatoryFighter}
-                onChange={(e) => onChange({ ...challenger, predatoryFighter: e.target.checked })}
+                checked={fighter.predatoryFighter}
+                onChange={(e) => onChange({ ...fighter, predatoryFighter: e.target.checked })}
                 className="h-4 w-4 border-2 border-zinc-900"
               />
               Predatory fighter
             </label>
-            {challenger.predatoryFighter ? (
+            {fighter.predatoryFighter ? (
               <InputField
-                id={`${title}-predatory-count`}
+                id={`${idPrefix}-predatory-count`}
                 label="Predatory fighter count"
-                value={challenger.predatoryFighterCount}
+                value={fighter.predatoryFighterCount}
                 min="0"
-                onChange={(value) => onChange({ ...challenger, predatoryFighterCount: value })}
+                onChange={(value) => onChange({ ...fighter, predatoryFighterCount: value })}
               />
             ) : null}
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
-                checked={challenger.alwaysStrikeFirst}
-                onChange={(e) => onChange({ ...challenger, alwaysStrikeFirst: e.target.checked })}
+                checked={fighter.alwaysStrikeFirst}
+                onChange={(e) => onChange({ ...fighter, alwaysStrikeFirst: e.target.checked })}
                 className="h-4 w-4 border-2 border-zinc-900"
               />
               Always strike first
@@ -624,37 +966,36 @@ const ChallengerForm = ({
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
-                checked={challenger.alwaysStrikeLast}
-                onChange={(e) => onChange({ ...challenger, alwaysStrikeLast: e.target.checked })}
+                checked={fighter.alwaysStrikeLast}
+                onChange={(e) => onChange({ ...fighter, alwaysStrikeLast: e.target.checked })}
                 className="h-4 w-4 border-2 border-zinc-900"
               />
               Always strike last
             </label>
           </div>
-        </div>
+        </SectionBlock>
 
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-700">Multiple wounds</p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <SectionBlock title="Multiple wounds" variant="bar" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
-                checked={challenger.multipleWoundsEnabled}
-                onChange={(e) => onChange({ ...challenger, multipleWoundsEnabled: e.target.checked })}
+                checked={fighter.multipleWoundsEnabled}
+                onChange={(e) => onChange({ ...fighter, multipleWoundsEnabled: e.target.checked })}
                 className="h-4 w-4 border-2 border-zinc-900"
               />
               Enable multiple wounds
             </label>
-            {challenger.multipleWoundsEnabled ? (
+            {fighter.multipleWoundsEnabled ? (
               <InputField
-                id={`${title}-multiple-wounds`}
+                id={`${idPrefix}-multiple-wounds`}
                 label="Multiple wounds value"
-                value={challenger.multipleWoundsValue}
+                value={fighter.multipleWoundsValue}
                 type="text"
                 pattern="^(?:[dD]\\d+|\\d+)$"
                 title="Use a number or dX (e.g. 2 or d6)"
                 placeholder="Value or dX (e.g. 2 or d6)"
-                onChange={(value) => onChange({ ...challenger, multipleWoundsValue: value })}
+                onChange={(value) => onChange({ ...fighter, multipleWoundsValue: value })}
               />
             ) : null}
             {multipleWoundsInvalid ? (
@@ -663,50 +1004,138 @@ const ChallengerForm = ({
               </p>
             ) : null}
           </div>
-        </div>
+        </SectionBlock>
 
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-700">Re-rolls</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SectionBlock title="Re-rolls" variant="bar" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to hit</p>
-              <div className="mt-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-zinc-900">Re-roll to hit</p>
+              <div className="mt-2 border-2 border-zinc-900 bg-white px-3 py-3">
                 <ReRollOptions
-                  config={challenger.rerollHit}
-                  onChange={(config) => onChange({ ...challenger, rerollHit: config })}
+                  config={fighter.rerollHit}
+                  onChange={(config) => onChange({ ...fighter, rerollHit: config })}
+                  compact
                 />
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to wound</p>
-              <div className="mt-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-zinc-900">Re-roll to wound</p>
+              <div className="mt-2 border-2 border-zinc-900 bg-white px-3 py-3">
                 <ReRollOptions
-                  config={challenger.rerollWound}
-                  onChange={(config) => onChange({ ...challenger, rerollWound: config })}
+                  config={fighter.rerollWound}
+                  onChange={(config) => onChange({ ...fighter, rerollWound: config })}
+                  compact
                 />
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll armor</p>
-              <div className="mt-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-zinc-900">Re-roll armor</p>
+              <div className="mt-2 border-2 border-zinc-900 bg-white px-3 py-3">
                 <ReRollOptions
-                  config={challenger.rerollArmor}
-                  onChange={(config) => onChange({ ...challenger, rerollArmor: config })}
+                  config={fighter.rerollArmor}
+                  onChange={(config) => onChange({ ...fighter, rerollArmor: config })}
+                  compact
                 />
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll ward</p>
-              <div className="mt-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-zinc-900">Re-roll ward</p>
+              <div className="mt-2 border-2 border-zinc-900 bg-white px-3 py-3">
                 <ReRollOptions
-                  config={challenger.rerollWard}
-                  onChange={(config) => onChange({ ...challenger, rerollWard: config })}
+                  config={fighter.rerollWard}
+                  onChange={(config) => onChange({ ...fighter, rerollWard: config })}
+                  compact
                 />
               </div>
             </div>
           </div>
-        </div>
+        </SectionBlock>
       </div>
+    </>
+  );
+};
+
+const ChallengerForm = ({
+  title,
+  challenger,
+  onChange,
+}: {
+  title: string;
+  challenger: ChallengerState;
+  onChange: (next: ChallengerState) => void;
+}) => {
+  const updateFighter = (next: FighterState) => onChange({ ...challenger, ...next });
+  const mountLabel = challenger.mountType === 'monster' ? 'Monster' : 'Normal';
+
+  return (
+    <Card className="px-4 py-5 sm:px-6 sm:py-6">
+      <h3 className="text-base font-semibold text-zinc-900">
+        {challenger.name.trim() ? `${title} — ${challenger.name.trim()}` : title}
+      </h3>
+      <FighterFields
+        fighter={challenger}
+        onChange={updateFighter}
+        idPrefix={title}
+        nameLabel="Challenger name"
+        showNameField={true}
+      />
+
+      <SectionBlock title="Mount" variant="bar" contentClassName="mt-3" className="mt-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(['none', 'normal', 'monster'] as const).map((option) => (
+            <label
+              key={`${title}-mount-${option}`}
+              className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600"
+            >
+              <input
+                type="radio"
+                name={`${title}-mount-type`}
+                checked={challenger.mountType === option}
+                onChange={() => onChange({ ...challenger, mountType: option })}
+                className="h-4 w-4 border-2 border-zinc-900"
+              />
+              {option === 'none' ? 'No mount' : option === 'normal' ? 'Normal' : 'Monster'}
+            </label>
+          ))}
+          {challenger.mountType === 'monster' ? (
+            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+              <input
+                type="checkbox"
+                checked={challenger.mountBreathWeapon}
+                onChange={(e) => onChange({ ...challenger, mountBreathWeapon: e.target.checked })}
+                className="h-4 w-4 border-2 border-zinc-900"
+              />
+              Breath weapon
+            </label>
+          ) : null}
+        </div>
+        {challenger.mountType === 'monster' && challenger.mountBreathWeapon ? (
+          <div className="mt-3">
+            <InputField
+              id={`${title}-breath-strength`}
+              label="Breath weapon strength"
+              value={challenger.mountBreathStrength}
+              min="1"
+              onChange={(value) => onChange({ ...challenger, mountBreathStrength: value })}
+            />
+          </div>
+        ) : null}
+      </SectionBlock>
+
+      {challenger.mountType !== 'none' ? (
+        <Card className="mt-5 px-4 py-5 sm:px-6 sm:py-6">
+          <h4 className="text-base font-semibold text-zinc-900">
+            {mountLabel} mount
+          </h4>
+          <FighterFields
+            fighter={challenger.mount}
+            onChange={(next) => onChange({ ...challenger, mount: next })}
+            idPrefix={`${title}-mount`}
+            nameLabel="Mount name"
+            showNameField={false}
+          />
+        </Card>
+      ) : null}
     </Card>
   );
 };
@@ -724,6 +1153,7 @@ const RoundDetails = ({
 }) => {
   const buildLines = (label: string, outcome: AttackOutcome) => {
     const debug = outcome.debug;
+    const rerollSummary = `Hit: ${debug.rerollHitLabel} | Wound: ${debug.rerollWoundLabel} | Armor: ${debug.rerollArmorLabel} | Ward: ${debug.rerollWardLabel}`;
     return [
       { label: `${label} final damage`, value: outcome.finalDamage },
       { label: `${label} successful hits`, value: outcome.successfulHits },
@@ -732,6 +1162,9 @@ const RoundDetails = ({
       { label: `${label} failed armor`, value: outcome.failedArmorSaves },
       { label: `${label} failed ward`, value: outcome.failedWardSaves },
       { label: `${label} hit target`, value: debug.hitTarget ? `${debug.hitTarget}+` : '-' },
+      { label: `${label} base hit target`, value: debug.baseHitTarget ? `${debug.baseHitTarget}+` : '-' },
+      { label: `${label} hit modifier +`, value: debug.hitModifierPositive },
+      { label: `${label} hit modifier -`, value: debug.hitModifierNegative },
       { label: `${label} wound target`, value: debug.woundTarget ? `${debug.woundTarget}+` : '-' },
       { label: `${label} effective armor`, value: debug.effectiveArmorSave ? `${debug.effectiveArmorSave}+` : '-' },
       { label: `${label} poisoned`, value: debug.poisonedAttack ? 'Yes' : 'No' },
@@ -739,12 +1172,10 @@ const RoundDetails = ({
       { label: `${label} predatory sixes`, value: debug.predatorySixes },
       { label: `${label} total attacks`, value: debug.totalAttacks },
       { label: `${label} non-poison hits`, value: debug.nonPoisonHits },
-      { label: `${label} reroll hit`, value: debug.rerollHitLabel },
-      { label: `${label} reroll wound`, value: debug.rerollWoundLabel },
-      { label: `${label} reroll armor`, value: debug.rerollArmorLabel },
-      { label: `${label} reroll ward`, value: debug.rerollWardLabel },
+      { label: `${label} rerolls`, value: rerollSummary },
       { label: `${label} ASF bonus`, value: debug.asfBonusReroll ? 'Yes' : 'No' },
       { label: `${label} multiple wounds`, value: debug.multipleWoundsValue || '-' },
+      { label: `${label} breath rolls`, value: debug.breathRolls?.join(', ') || '-' },
       { label: `${label} skipped`, value: debug.skipped ? 'Yes' : 'No' },
       ...(isProbability ? [
         { label: `${label} hit chance`, value: debug.hitChance?.toFixed(3) ?? '-' },
@@ -789,15 +1220,20 @@ const RoundDetails = ({
           </p>
         </div>
       </div>
+      <div className="mt-4 border-2 border-zinc-900 px-3 py-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Damage inflicted</p>
+        <p className="mt-1 text-lg font-bold text-zinc-900">
+          {challengerOneLabel}: {round.summary.oneDamage.toFixed(2)} | {challengerTwoLabel}: {round.summary.twoDamage.toFixed(2)}
+        </p>
+      </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <DebugPanel
-          title={`${challengerOneLabel} debug`}
-          lines={buildLines(challengerOneLabel, round.challengerOne)}
-        />
-        <DebugPanel
-          title={`${challengerTwoLabel} debug`}
-          lines={buildLines(challengerTwoLabel, round.challengerTwo)}
-        />
+        {round.actions.map((action, index) => (
+          <DebugPanel
+            key={`${round.round}-${index}`}
+            title={action.label}
+            lines={buildLines(action.label, action.outcome)}
+          />
+        ))}
       </div>
     </Card>
   );
@@ -812,53 +1248,48 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
   const [hasResults, setHasResults] = useState(false);
 
   const parseChallenger = (challenger: ChallengerState): ParsedChallenger | null => {
-    const wardSaveValue = challenger.wardSave.trim() === '' ? '0' : challenger.wardSave;
-    const parsed = {
-      ac: Number.parseInt(challenger.ac, 10),
-      strength: Number.parseInt(challenger.strength, 10),
-      resistance: Number.parseInt(challenger.resistance, 10),
-      wounds: Number.parseInt(challenger.wounds, 10),
-      initiative: Number.parseInt(challenger.initiative, 10),
-      attacks: Number.parseInt(challenger.attacks, 10),
-      armorSave: Number.parseInt(challenger.armorSave, 10),
-      wardSave: Number.parseInt(wardSaveValue, 10),
-      predatoryFighterCount: challenger.predatoryFighter
-        ? Number.parseInt(challenger.predatoryFighterCount, 10)
-        : 0,
-    };
-    const multipleWounds = challenger.multipleWoundsEnabled
-      ? parseMultipleWoundsValue(challenger.multipleWoundsValue)
-      : null;
+    const rider = parseFighter(challenger);
+    if (!rider) {
+      return null;
+    }
+    const mount = challenger.mountType === 'none' ? null : parseFighter(challenger.mount);
+    if (challenger.mountType !== 'none' && !mount) {
+      return null;
+    }
 
+    const armorBonus = challenger.mountType === 'none' ? 0 : 1;
+    const defenseAc = mount ? Math.max(rider.ac, mount.ac) : rider.ac;
+    const defenseResistance = mount ? Math.max(rider.resistance, mount.resistance) : rider.resistance;
+    const defenseWounds = mount
+      ? (challenger.mountType === 'monster' ? rider.wounds : Math.max(rider.wounds, mount.wounds))
+      : rider.wounds;
+    const defenseArmorSave = Math.max(1, rider.armorSave - armorBonus);
+    const mountBreathStrength = challenger.mountType === 'monster' && challenger.mountBreathWeapon
+      ? Number.parseInt(challenger.mountBreathStrength, 10)
+      : null;
     if (
-      Number.isNaN(parsed.ac)
-      || Number.isNaN(parsed.strength)
-      || Number.isNaN(parsed.resistance)
-      || Number.isNaN(parsed.wounds)
-      || parsed.wounds <= 0
-      || Number.isNaN(parsed.initiative)
-      || Number.isNaN(parsed.attacks)
-      || parsed.attacks <= 0
-      || Number.isNaN(parsed.armorSave)
-      || Number.isNaN(parsed.wardSave)
-      || Number.isNaN(parsed.predatoryFighterCount)
-      || parsed.predatoryFighterCount < 0
-      || (challenger.multipleWoundsEnabled && !multipleWounds)
+      challenger.mountType === 'monster'
+      && challenger.mountBreathWeapon
+      && (!mountBreathStrength || Number.isNaN(mountBreathStrength) || mountBreathStrength <= 0)
     ) {
       return null;
     }
 
     return {
-      ...parsed,
-      poisonedAttack: challenger.poisonedAttack,
-      predatoryFighterCount: Math.min(parsed.predatoryFighterCount, parsed.attacks),
-      multipleWounds,
-      alwaysStrikeFirst: challenger.alwaysStrikeFirst,
-      alwaysStrikeLast: challenger.alwaysStrikeLast,
-      rerollHit: challenger.rerollHit,
-      rerollWound: challenger.rerollWound,
-      rerollArmor: challenger.rerollArmor,
-      rerollWard: challenger.rerollWard,
+      rider,
+      mount,
+      mountType: challenger.mountType,
+      mountBreathWeapon: challenger.mountBreathWeapon,
+      mountBreathStrength,
+      defense: {
+        ac: defenseAc,
+        resistance: defenseResistance,
+        wounds: defenseWounds,
+        armorSave: defenseArmorSave,
+        wardSave: rider.wardSave,
+        rerollArmor: rider.rerollArmor,
+        rerollWard: rider.rerollWard,
+      },
     };
   };
 
@@ -872,57 +1303,145 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
     }
 
     setErrorMessage('');
-    const newRounds: RoundLog[] = [];
-    let woundsOne = parsedOne.wounds;
-    let woundsTwo = parsedTwo.wounds;
-    let round = 1;
-    const orderInfo = resolveOrder(parsedOne, parsedTwo);
+    const nameOne = challengerOne.name.trim() || 'Challenger 1';
+    const nameTwo = challengerTwo.name.trim() || 'Challenger 2';
+    const mountOneTitle = parsedOne.mountType === 'none' ? '' : ` (${parsedOne.mountType})`;
+    const mountTwoTitle = parsedTwo.mountType === 'none' ? '' : ` (${parsedTwo.mountType})`;
+    const entries: FighterEntry[] = [
+      {
+        key: 'one-rider',
+        label: nameOne,
+        owner: 'one',
+        fighter: parsedOne.rider,
+        opponent: parsedTwo.rider,
+        defender: parsedTwo.defense,
+        attackType: 'normal',
+      },
+      {
+        key: 'two-rider',
+        label: nameTwo,
+        owner: 'two',
+        fighter: parsedTwo.rider,
+        opponent: parsedOne.rider,
+        defender: parsedOne.defense,
+        attackType: 'normal',
+      },
+    ];
+    if (parsedOne.mount) {
+      entries.push({
+        key: 'one-mount',
+        label: `${nameOne} mount${mountOneTitle}`,
+        owner: 'one',
+        fighter: parsedOne.mount,
+        opponent: parsedTwo.rider,
+        defender: parsedTwo.defense,
+        attackType: 'normal',
+      });
+    }
+    if (parsedTwo.mount) {
+      entries.push({
+        key: 'two-mount',
+        label: `${nameTwo} mount${mountTwoTitle}`,
+        owner: 'two',
+        fighter: parsedTwo.mount,
+        opponent: parsedOne.rider,
+        defender: parsedOne.defense,
+        attackType: 'normal',
+      });
+    }
 
+    const newRounds: RoundLog[] = [];
+    let woundsOne = parsedOne.defense.wounds;
+    let woundsTwo = parsedTwo.defense.wounds;
+    let round = 1;
+
+    let breathOneUsed = false;
+    let breathTwoUsed = false;
     while (round <= MAX_ROUNDS && woundsOne > 0 && woundsTwo > 0) {
       const startWounds = { one: woundsOne, two: woundsTwo };
-      let outcomeOne: AttackOutcome = buildSkippedOutcome(
-        challengerOne.multipleWoundsEnabled ? challengerOne.multipleWoundsValue : '',
-      );
-      let outcomeTwo: AttackOutcome = buildSkippedOutcome(
-        challengerTwo.multipleWoundsEnabled ? challengerTwo.multipleWoundsValue : '',
-      );
+      const livingEntries = entries.filter((entry) => (
+        entry.owner === 'one' ? woundsOne > 0 : woundsTwo > 0
+      ));
+      const orderCandidates = [...livingEntries];
+      if (parsedOne.mountType === 'monster' && parsedOne.mountBreathWeapon && !breathOneUsed && parsedOne.mount) {
+        orderCandidates.push({
+          key: 'one-breath',
+          label: `${nameOne} breath weapon`,
+          owner: 'one',
+          fighter: parsedOne.mount,
+          opponent: parsedTwo.rider,
+          defender: parsedTwo.defense,
+          attackType: 'breath',
+          breathStrength: parsedOne.mountBreathStrength ?? undefined,
+        });
+      }
+      if (parsedTwo.mountType === 'monster' && parsedTwo.mountBreathWeapon && !breathTwoUsed && parsedTwo.mount) {
+        orderCandidates.push({
+          key: 'two-breath',
+          label: `${nameTwo} breath weapon`,
+          owner: 'two',
+          fighter: parsedTwo.mount,
+          opponent: parsedOne.rider,
+          defender: parsedOne.defense,
+          attackType: 'breath',
+          breathStrength: parsedTwo.mountBreathStrength ?? undefined,
+        });
+      }
 
-      if (orderInfo.order === 'simultaneous') {
-        const hitConfigOne = resolveHitRerollConfig(parsedOne, parsedTwo);
-        const hitConfigTwo = resolveHitRerollConfig(parsedTwo, parsedOne);
-        outcomeOne = mode === 'probability'
-          ? computeProbabilityAttack(parsedOne, parsedTwo, hitConfigOne)
-          : computeThrowAttack(parsedOne, parsedTwo, hitConfigOne);
-        outcomeTwo = mode === 'probability'
-          ? computeProbabilityAttack(parsedTwo, parsedOne, hitConfigTwo)
-          : computeThrowAttack(parsedTwo, parsedOne, hitConfigTwo);
-        woundsTwo = parseFloat((woundsTwo - outcomeOne.finalDamage).toFixed(2));
-        woundsOne = parseFloat((woundsOne - outcomeTwo.finalDamage).toFixed(2));
-      } else if (orderInfo.order === 'one') {
-        const hitConfigOne = resolveHitRerollConfig(parsedOne, parsedTwo);
-        outcomeOne = mode === 'probability'
-          ? computeProbabilityAttack(parsedOne, parsedTwo, hitConfigOne)
-          : computeThrowAttack(parsedOne, parsedTwo, hitConfigOne);
-        woundsTwo = parseFloat((woundsTwo - outcomeOne.finalDamage).toFixed(2));
-        if (woundsTwo > 0) {
-          const hitConfigTwo = resolveHitRerollConfig(parsedTwo, parsedOne);
-          outcomeTwo = mode === 'probability'
-            ? computeProbabilityAttack(parsedTwo, parsedOne, hitConfigTwo)
-            : computeThrowAttack(parsedTwo, parsedOne, hitConfigTwo);
-          woundsOne = parseFloat((woundsOne - outcomeTwo.finalDamage).toFixed(2));
+      const orderInfo = buildAttackOrder(orderCandidates);
+      const actions: RoundAction[] = [];
+      for (const group of orderInfo.groups) {
+        if (woundsOne <= 0 || woundsTwo <= 0) {
+          break;
         }
-      } else {
-        const hitConfigTwo = resolveHitRerollConfig(parsedTwo, parsedOne);
-        outcomeTwo = mode === 'probability'
-          ? computeProbabilityAttack(parsedTwo, parsedOne, hitConfigTwo)
-          : computeThrowAttack(parsedTwo, parsedOne, hitConfigTwo);
-        woundsOne = parseFloat((woundsOne - outcomeTwo.finalDamage).toFixed(2));
-        if (woundsOne > 0) {
-          const hitConfigOne = resolveHitRerollConfig(parsedOne, parsedTwo);
-          outcomeOne = mode === 'probability'
-            ? computeProbabilityAttack(parsedOne, parsedTwo, hitConfigOne)
-            : computeThrowAttack(parsedOne, parsedTwo, hitConfigOne);
-          woundsTwo = parseFloat((woundsTwo - outcomeOne.finalDamage).toFixed(2));
+        let pendingDamageOne = 0;
+        let pendingDamageTwo = 0;
+        for (const entry of group) {
+          if (entry.owner === 'one' && woundsOne <= 0) {
+            continue;
+          }
+          if (entry.owner === 'two' && woundsTwo <= 0) {
+            continue;
+          }
+          let outcome: AttackOutcome;
+          if (entry.attackType === 'breath' && entry.breathStrength) {
+            let hits = 7;
+            let breathRolls: number[] = [];
+            if (mode === 'throw') {
+              const first = Math.floor(Math.random() * 6) + 1;
+              const second = Math.floor(Math.random() * 6) + 1;
+              breathRolls = [first, second];
+              hits = first + second;
+            }
+            outcome = computeBreathAttack(entry.fighter, entry.defender, hits, entry.breathStrength, breathRolls);
+            if (entry.owner === 'one') {
+              breathOneUsed = true;
+            } else {
+              breathTwoUsed = true;
+            }
+          } else {
+            const hitConfig = resolveHitRerollConfig(entry.fighter, entry.opponent);
+            outcome = mode === 'probability'
+              ? computeProbabilityAttack(entry.fighter, entry.defender, hitConfig)
+              : computeThrowAttack(entry.fighter, entry.defender, hitConfig);
+          }
+          actions.push({
+            label: `${entry.label} -> ${entry.owner === 'one' ? nameTwo : nameOne}`,
+            sourceOwner: entry.owner,
+            targetOwner: entry.owner === 'one' ? 'two' : 'one',
+            outcome,
+          });
+          if (entry.owner === 'one') {
+            pendingDamageTwo += outcome.finalDamage;
+          } else {
+            pendingDamageOne += outcome.finalDamage;
+          }
+        }
+        if (pendingDamageOne) {
+          woundsOne = parseFloat((woundsOne - pendingDamageOne).toFixed(2));
+        }
+        if (pendingDamageTwo) {
+          woundsTwo = parseFloat((woundsTwo - pendingDamageTwo).toFixed(2));
         }
       }
 
@@ -931,14 +1450,16 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
         orderLabel: orderInfo.label,
         startWounds,
         endWounds: { one: woundsOne, two: woundsTwo },
-        challengerOne: outcomeOne,
-        challengerTwo: outcomeTwo,
+        actions,
+        summary: {
+          oneDamage: actions
+            .filter((action) => action.sourceOwner === 'one')
+            .reduce((sum, action) => sum + action.outcome.finalDamage, 0),
+          twoDamage: actions
+            .filter((action) => action.sourceOwner === 'two')
+            .reduce((sum, action) => sum + action.outcome.finalDamage, 0),
+        },
       });
-
-      if (outcomeOne.finalDamage === 0 && outcomeTwo.finalDamage === 0) {
-        setErrorMessage('No damage dealt. Duel cannot resolve.');
-        break;
-      }
 
       round += 1;
     }
@@ -953,33 +1474,28 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
     }
     const lastRound = rounds[rounds.length - 1];
     const { one, two } = lastRound.endWounds;
+    const nameOne = challengerOne.name.trim() || 'Challenger 1';
+    const nameTwo = challengerTwo.name.trim() || 'Challenger 2';
     if (one <= 0 && two <= 0) {
       return 'Double KO';
     }
     if (one <= 0) {
-      return 'Challenger 2';
+      return nameTwo;
     }
     if (two <= 0) {
-      return 'Challenger 1';
+      return nameOne;
     }
     return 'No winner';
-  }, [hasResults, rounds]);
+  }, [hasResults, rounds, challengerOne.name, challengerTwo.name]);
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Challenge simulator</h2>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mt-2 border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-          >
-            Back to phases
-          </button>
-        </div>
-        <ModeSwitch mode={mode} onModeChange={setMode} />
-      </div>
+      <CardHeader
+        title="Challenge simulator"
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={setMode} />}
+      />
 
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <ChallengerForm
@@ -994,13 +1510,11 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
         />
       </div>
 
-      <button
-        type="button"
-        onClick={handleCalculate}
-        className="mt-6 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-      >
-        Calculate
-      </button>
+      <ActionBar className="mt-6">
+        <Button type="button" onClick={handleCalculate} fullWidth size="lg">
+          Calculate
+        </Button>
+      </ActionBar>
 
       {errorMessage ? (
         <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
@@ -1012,6 +1526,12 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
         <div className="mt-6 space-y-5">
           <Card className="px-4 py-5 sm:px-6 sm:py-6">
             <h3 className="text-base font-semibold text-zinc-900">Summary</h3>
+            <p className="mt-2 text-sm text-zinc-600">
+              Challenger 1: {challengerOne.name.trim() || 'Challenger 1'}
+            </p>
+            <p className="mt-1 text-sm text-zinc-600">
+              Challenger 2: {challengerTwo.name.trim() || 'Challenger 2'}
+            </p>
             <p className="mt-2 text-sm text-zinc-600">Winner: {winnerLabel}</p>
             <p className="mt-1 text-sm text-zinc-600">Rounds played: {rounds.length}</p>
           </Card>
@@ -1019,8 +1539,8 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
             <RoundDetails
               key={`round-${round.round}`}
               round={round}
-              challengerOneLabel="Challenger 1"
-              challengerTwoLabel="Challenger 2"
+              challengerOneLabel={challengerOne.name.trim() || 'Challenger 1'}
+              challengerTwoLabel={challengerTwo.name.trim() || 'Challenger 2'}
               isProbability={mode === 'probability'}
             />
           ))}

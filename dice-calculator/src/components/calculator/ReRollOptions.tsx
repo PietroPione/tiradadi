@@ -1,4 +1,5 @@
 import InputField from '@/components/ui/InputField';
+import ToggleButton from '@/components/ui/ToggleButton';
 
 type RerollConfig = {
   enabled: boolean;
@@ -10,14 +11,17 @@ type RerollConfig = {
 type ReRollOptionsProps = {
   config: RerollConfig;
   onChange: (config: RerollConfig) => void;
+  compact?: boolean;
 };
 
 export type { RerollConfig };
 
-export default function ReRollOptions({ config, onChange }: ReRollOptionsProps) {
+export default function ReRollOptions({ config, onChange, compact = false }: ReRollOptionsProps) {
   const update = (patch: Partial<RerollConfig>) => {
     onChange({ ...config, ...patch });
   };
+  const buttonSize = compact ? 'sm' : 'md';
+  const gapClass = compact ? 'flex flex-wrap gap-1.5' : 'flex flex-wrap gap-2';
 
   return (
     <div>
@@ -35,53 +39,37 @@ export default function ReRollOptions({ config, onChange }: ReRollOptionsProps) 
 
         {config.enabled ? (
           <>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+            <div className={gapClass}>
+              <ToggleButton
+                active={config.mode === 'failed'}
                 onClick={() => update({ mode: 'failed' })}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
-                  config.mode === 'failed'
-                    ? 'border-zinc-900 bg-zinc-900 text-white'
-                    : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                size={buttonSize}
               >
                 Re-roll failed
-              </button>
-              <button
-                type="button"
+              </ToggleButton>
+              <ToggleButton
+                active={config.mode === 'success'}
                 onClick={() => update({ mode: 'success' })}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
-                  config.mode === 'success'
-                    ? 'border-zinc-900 bg-zinc-900 text-white'
-                    : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                size={buttonSize}
               >
                 Re-roll success
-              </button>
+              </ToggleButton>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+            <div className={gapClass}>
+              <ToggleButton
+                active={config.scope === 'all'}
                 onClick={() => update({ scope: 'all' })}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
-                  config.scope === 'all'
-                    ? 'border-zinc-900 bg-zinc-900 text-white'
-                    : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                size={buttonSize}
               >
                 All
-              </button>
-              <button
-                type="button"
+              </ToggleButton>
+              <ToggleButton
+                active={config.scope === 'specific'}
                 onClick={() => update({ scope: 'specific' })}
-                className={`border-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white ${
-                  config.scope === 'specific'
-                    ? 'border-zinc-900 bg-zinc-900 text-white'
-                    : 'border-zinc-900 bg-white text-zinc-900'
-                }`}
+                size={buttonSize}
               >
                 Specific values
-              </button>
+              </ToggleButton>
             </div>
             {config.scope === 'specific' ? (
               <InputField

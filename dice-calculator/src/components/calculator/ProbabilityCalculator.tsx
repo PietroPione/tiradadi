@@ -1,8 +1,13 @@
 import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import ActionBar from '@/components/ui/ActionBar';
 import InputField from '@/components/ui/InputField';
+import StatGrid from '@/components/ui/StatGrid';
 import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
+import CardHeader from '@/components/ui/CardHeader';
+import SectionBlock from '@/components/ui/SectionBlock';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -106,7 +111,7 @@ export default function ProbabilityCalculator({
   return (
     <>
       <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <h2 className="text-lg font-semibold text-zinc-900">Probability calculator</h2>
+      <CardHeader title="Probability calculator" />
       <div className="mt-4 space-y-5">
         <InputField
           id="diceCount"
@@ -115,9 +120,8 @@ export default function ProbabilityCalculator({
           min="1"
           onChange={onDiceCountChange}
         />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To hit</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:gap-5">
+        <SectionBlock title="To hit" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-5">
             <div>
               <InputField
                 id="hitValue"
@@ -159,29 +163,30 @@ export default function ProbabilityCalculator({
             </div>
           </div>
           <div className="mt-4">
-            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
+            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
           </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="hitStrength"
-              label="Hit Strength"
-              value={hitStrength}
-              min="1"
-              max="10"
-              onChange={onHitStrengthChange}
-            />
-            <InputField
-              id="woundValue"
-              label="To Wound (X+)"
-              value={woundValue}
-              min="1"
-              max="7"
-              onChange={onWoundValueChange}
-            />
-          </div>
+        </SectionBlock>
+        <SectionBlock title="To wound" contentClassName="mt-3">
+          <StatGrid
+            fields={[
+              {
+                id: 'hitStrength',
+                label: 'Hit Strength',
+                value: hitStrength,
+                min: '1',
+                max: '10',
+                onChange: onHitStrengthChange,
+              },
+              {
+                id: 'woundValue',
+                label: 'To Wound (X+)',
+                value: woundValue,
+                min: '1',
+                max: '7',
+                onChange: onWoundValueChange,
+              },
+            ]}
+          />
           <div className="mt-3 space-y-3">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
@@ -211,45 +216,53 @@ export default function ProbabilityCalculator({
             ) : null}
           </div>
           <div className="mt-4">
-            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
+            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
           </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Savings</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+        </SectionBlock>
+        <SectionBlock title="Savings" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="space-y-3">
-              <InputField
-                id="armorSave"
-                label="Armor Save (X+)"
-                value={armorSave}
-                min="1"
-                max="7"
-                onChange={onArmorSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'armorSave',
+                    label: 'Armor Save (X+)',
+                    value: armorSave,
+                    min: '1',
+                    max: '7',
+                    onChange: onArmorSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
             </div>
             <div className="space-y-3">
-              <InputField
-                id="wardSave"
-                label="Ward Save (X+)"
-                value={wardSave}
-                min="0"
-                max="7"
-                placeholder="Leave empty if none"
-                onChange={onWardSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'wardSave',
+                    label: 'Ward Save (X+)',
+                    value: wardSave,
+                    min: '0',
+                    max: '7',
+                    placeholder: 'Leave empty if none',
+                    onChange: onWardSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
             </div>
           </div>
-        </div>
+        </SectionBlock>
       </div>
 
-      <button
-        onClick={onCalculate}
-        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-      >
-        Calculate
-      </button>
+      <ActionBar>
+        <Button onClick={onCalculate} fullWidth size="lg">
+          Calculate
+        </Button>
+      </ActionBar>
       {errorMessage ? (
         <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
           {errorMessage}

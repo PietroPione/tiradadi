@@ -1,9 +1,14 @@
 import Card from '@/components/ui/Card';
+import ActionBar from '@/components/ui/ActionBar';
+import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
 import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
+import CardHeader from '@/components/ui/CardHeader';
+import SectionBlock from '@/components/ui/SectionBlock';
+import StatGrid from '@/components/ui/StatGrid';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -181,19 +186,12 @@ export default function ShootingPhaseCalculator({
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Shooting phase</h2>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mt-2 border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-          >
-            Back to phases
-          </button>
-        </div>
-        <ModeSwitch mode={mode} onModeChange={onModeChange} />
-      </div>
+      <CardHeader
+        title="Shooting phase"
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+      />
 
       <div className="mt-4 space-y-5">
         <InputField
@@ -242,9 +240,8 @@ export default function ShootingPhaseCalculator({
         )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Special rules</p>
-            <div className="mt-3 space-y-3">
+          <SectionBlock title="Special rules" contentClassName="mt-3">
+            <div className="space-y-3">
               {!autoHit ? (
                 <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                   <input
@@ -266,12 +263,11 @@ export default function ShootingPhaseCalculator({
                 Auto-hit
               </label>
             </div>
-          </div>
+          </SectionBlock>
 
           {!autoHit ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Cover</p>
-              <div className="mt-3 space-y-3">
+            <SectionBlock title="Cover" contentClassName="mt-3">
+              <div className="space-y-3">
                 <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                   <input
                     type="checkbox"
@@ -291,14 +287,13 @@ export default function ShootingPhaseCalculator({
                   Hard cover
                 </label>
               </div>
-            </div>
+            </SectionBlock>
           ) : null}
         </div>
 
         {!autoHit ? (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Modifiers</p>
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <SectionBlock title="Modifiers" contentClassName="mt-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                 <input
                   type="checkbox"
@@ -327,45 +322,41 @@ export default function ShootingPhaseCalculator({
                 Skirmisher target
               </label>
             </div>
-          </div>
+          </SectionBlock>
         ) : null}
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to hit</p>
-          <div className="mt-3">
-            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} />
-          </div>
-        </div>
+        <SectionBlock title="Re-roll to hit" contentClassName="mt-3">
+          <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
+        </SectionBlock>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">To wound</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <InputField
-              id="shootingHitStrength"
-              label="Hit Strength"
-              value={hitStrength}
-              min="1"
-              onChange={onHitStrengthChange}
-            />
-            {isProbability ? (
-              <InputField
-                id="shootingWoundValue"
-                label="To Wound (X+)"
-                value={woundValue}
-                min="1"
-                max="7"
-                onChange={onWoundValueChange}
-              />
-            ) : (
-              <InputField
-                id="shootingTargetToughness"
-                label="Target Toughness"
-                value={targetToughness}
-                min="1"
-                onChange={onTargetToughnessChange}
-              />
-            )}
-          </div>
+        <SectionBlock title="To wound" contentClassName="mt-3">
+          <StatGrid
+            fields={[
+              {
+                id: 'shootingHitStrength',
+                label: 'Hit Strength',
+                value: hitStrength,
+                min: '1',
+                onChange: onHitStrengthChange,
+              },
+              isProbability
+                ? {
+                  id: 'shootingWoundValue',
+                  label: 'To Wound (X+)',
+                  value: woundValue,
+                  min: '1',
+                  max: '7',
+                  onChange: onWoundValueChange,
+                }
+                : {
+                  id: 'shootingTargetToughness',
+                  label: 'Target Toughness',
+                  value: targetToughness,
+                  min: '1',
+                  onChange: onTargetToughnessChange,
+                },
+            ]}
+          />
           <div className="mt-3 space-y-3">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
@@ -394,52 +385,56 @@ export default function ShootingPhaseCalculator({
               </p>
             ) : null}
           </div>
-        </div>
+        </SectionBlock>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Re-roll to wound</p>
-          <div className="mt-3">
-            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} />
-          </div>
-        </div>
+        <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
+          <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
+        </SectionBlock>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Savings</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+        <SectionBlock title="Savings" contentClassName="mt-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="space-y-3">
-              <InputField
-                id="shootingArmorSave"
-                label="Armor Save (X+)"
-                value={armorSave}
-                min="1"
-                max="7"
-                onChange={onArmorSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'shootingArmorSave',
+                    label: 'Armor Save (X+)',
+                    value: armorSave,
+                    min: '1',
+                    max: '7',
+                    onChange: onArmorSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} />
+              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
             </div>
             <div className="space-y-3">
-              <InputField
-                id="shootingWardSave"
-                label="Ward Save (X+)"
-                value={wardSave}
-                min="0"
-                max="7"
-                placeholder="Leave empty if none"
-                onChange={onWardSaveChange}
+              <StatGrid
+                columns={1}
+                fields={[
+                  {
+                    id: 'shootingWardSave',
+                    label: 'Ward Save (X+)',
+                    value: wardSave,
+                    min: '0',
+                    max: '7',
+                    placeholder: 'Leave empty if none',
+                    onChange: onWardSaveChange,
+                  },
+                ]}
               />
-              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} />
+              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
             </div>
           </div>
-        </div>
+        </SectionBlock>
       </div>
 
-      <button
-        type="button"
-        onClick={isProbability ? onAverageCalculate : onThrowCalculate}
-        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-      >
-        Calculate
-      </button>
+      <ActionBar>
+        <Button type="button" onClick={isProbability ? onAverageCalculate : onThrowCalculate} fullWidth size="lg">
+          Calculate
+        </Button>
+      </ActionBar>
       {errorMessage ? (
         <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
           {errorMessage}

@@ -1,6 +1,10 @@
 import Card from '@/components/ui/Card';
+import ActionBar from '@/components/ui/ActionBar';
+import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
+import CardHeader from '@/components/ui/CardHeader';
+import SectionBlock from '@/components/ui/SectionBlock';
 import DebugPanel from '@/components/ui/DebugPanel';
 
 const formatRerollLabel = (config: RerollConfig) => {
@@ -68,18 +72,11 @@ export default function BreakMoraleCheck({
 }: BreakMoraleCheckProps) {
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Break / Morale check</h2>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mt-2 border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-          >
-            Back to phases
-          </button>
-        </div>
-      </div>
+      <CardHeader
+        title="Break / Morale check"
+        onBack={onBack}
+        backLabel="Back to phases"
+      />
 
       <div className="mt-4 space-y-5">
         <InputField
@@ -106,9 +103,8 @@ export default function BreakMoraleCheck({
             onChange={onMalusChange}
           />
         </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Options</p>
-          <div className="mt-3 space-y-3">
+        <SectionBlock title="Options" contentClassName="mt-3">
+          <div className="space-y-3">
             <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
               <input
                 type="checkbox"
@@ -128,17 +124,15 @@ export default function BreakMoraleCheck({
               With three dice
             </label>
           </div>
-        </div>
-        <ReRollOptions config={rerollConfig} onChange={onRerollChange} />
+        </SectionBlock>
+        <ReRollOptions config={rerollConfig} onChange={onRerollChange} compact />
       </div>
 
-      <button
-        type="button"
-        onClick={onRoll}
-        className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-      >
-        Roll
-      </button>
+      <ActionBar>
+        <Button type="button" onClick={onRoll} fullWidth size="lg">
+          Roll
+        </Button>
+      </ActionBar>
       {errorMessage ? (
         <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
           {errorMessage}
