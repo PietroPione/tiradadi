@@ -1,17 +1,24 @@
+import type { ReactNode } from 'react';
 import Card from '@/components/ui/Card';
 import InputField from '@/components/ui/InputField';
 import DebugPanel from '@/components/ui/DebugPanel';
 
-type TrechInjuryResults = {
-  rolls: number[];
-  selectedRolls: number[];
-  baseTotal: number;
-  finalTotal: number;
-  outcome: 'No effect' | 'Minor hit' | 'Down' | 'Out of action';
+type TrechInjuryProbabilityResults = {
+  expectedTotal: number;
+  outcomeChances: {
+    noEffect: number;
+    minorHit: number;
+    down: number;
+    outOfAction: number;
+  };
   selectionMode: 'highest' | 'lowest' | 'normal';
+  baseDice: number;
+  totalDice: number;
+  netDice: number;
+  armorApplied: number;
 };
 
-type TrechInjuryRollCalculatorProps = {
+type TrechInjuryProbabilityCalculatorProps = {
   plusDice: string;
   minusDice: string;
   positiveModifier: string;
@@ -22,19 +29,14 @@ type TrechInjuryRollCalculatorProps = {
   armorPositiveModifier: string;
   armorNegativeModifier: string;
   errorMessage: string;
-  results: TrechInjuryResults | null;
+  results: TrechInjuryProbabilityResults | null;
   debug: {
-    rolls: number[];
-    selectedRolls: number[];
     baseDice: number;
     totalDice: number;
     netDice: number;
-    targetArmor: number;
-    armorPositive: number;
-    armorNegative: number;
     armorApplied: number;
-    baseTotal: number;
-    finalTotal: number;
+    expectedTotal: number;
+    outcomeChances: TrechInjuryProbabilityResults['outcomeChances'];
   };
   onPlusDiceChange: (value: string) => void;
   onMinusDiceChange: (value: string) => void;
@@ -45,11 +47,12 @@ type TrechInjuryRollCalculatorProps = {
   onNoArmorSaveChange: (value: boolean) => void;
   onArmorPositiveModifierChange: (value: string) => void;
   onArmorNegativeModifierChange: (value: string) => void;
-  onRoll: () => void;
+  onCalculate: () => void;
   onBack: () => void;
+  rightSlot?: ReactNode;
 };
 
-const formatSelectionLabel = (mode: TrechInjuryResults['selectionMode'], count: number) => {
+const formatSelectionLabel = (mode: TrechInjuryProbabilityResults['selectionMode'], count: number) => {
   if (mode === 'highest') {
     return count === 3 ? 'Highest three' : 'Highest two';
   }
@@ -59,7 +62,7 @@ const formatSelectionLabel = (mode: TrechInjuryResults['selectionMode'], count: 
   return count === 3 ? 'Three dice' : 'Two dice';
 };
 
-export default function TrechInjuryRollCalculator({
+export default function TrechInjuryProbabilityCalculator({
   plusDice,
   minusDice,
   positiveModifier,
@@ -81,9 +84,10 @@ export default function TrechInjuryRollCalculator({
   onNoArmorSaveChange,
   onArmorPositiveModifierChange,
   onArmorNegativeModifierChange,
-  onRoll,
+  onCalculate,
   onBack,
-}: TrechInjuryRollCalculatorProps) {
+  rightSlot,
+}: TrechInjuryProbabilityCalculatorProps) {
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -91,13 +95,16 @@ export default function TrechInjuryRollCalculator({
           <h2 className="text-lg font-semibold text-zinc-900">Injury roll</h2>
           <p className="mt-1 text-sm text-zinc-600">Resolve the injury table.</p>
         </div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
-        >
-          Back to phases
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+          >
+            Back to phases
+          </button>
+          {rightSlot ? rightSlot : null}
+        </div>
       </div>
 
       <div className="mt-4 space-y-5">
@@ -112,14 +119,14 @@ export default function TrechInjuryRollCalculator({
         </label>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
           <InputField
-            id="trechInjuryPlusDice"
+            id="trechInjuryProbPlusDice"
             label="+Dice"
             value={plusDice}
             min="0"
             onChange={onPlusDiceChange}
           />
           <InputField
-            id="trechInjuryMinusDice"
+            id="trechInjuryProbMinusDice"
             label="-Dice"
             value={minusDice}
             min="0"
@@ -128,14 +135,14 @@ export default function TrechInjuryRollCalculator({
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
           <InputField
-            id="trechInjuryPositiveMod"
+            id="trechInjuryProbPositiveMod"
             label="Positive modifier"
             value={positiveModifier}
             min="0"
             onChange={onPositiveModifierChange}
           />
           <InputField
-            id="trechInjuryNegativeMod"
+            id="trechInjuryProbNegativeMod"
             label="Negative modifier"
             value={negativeModifier}
             min="0"
@@ -143,7 +150,7 @@ export default function TrechInjuryRollCalculator({
           />
         </div>
         <InputField
-          id="trechInjuryTargetArmor"
+          id="trechInjuryProbTargetArmor"
           label="Target armor"
           value={targetArmor}
           min="0"
@@ -161,7 +168,7 @@ export default function TrechInjuryRollCalculator({
         </label>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
           <InputField
-            id="trechInjuryArmorPositive"
+            id="trechInjuryProbArmorPositive"
             label="Armor positive modifier"
             value={armorPositiveModifier}
             min="0"
@@ -169,7 +176,7 @@ export default function TrechInjuryRollCalculator({
             onChange={onArmorPositiveModifierChange}
           />
           <InputField
-            id="trechInjuryArmorNegative"
+            id="trechInjuryProbArmorNegative"
             label="Armor negative modifier"
             value={armorNegativeModifier}
             min="0"
@@ -181,10 +188,10 @@ export default function TrechInjuryRollCalculator({
 
       <button
         type="button"
-        onClick={onRoll}
+        onClick={onCalculate}
         className="mt-5 w-full border-2 border-zinc-900 py-3 text-base font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
       >
-        Roll
+        Calculate
       </button>
 
       {errorMessage ? (
@@ -199,34 +206,35 @@ export default function TrechInjuryRollCalculator({
           <div className="mt-4 space-y-2 text-sm">
             <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
               <span className="text-zinc-600">
-                {formatSelectionLabel(results.selectionMode, results.selectedRolls.length)}
+                {formatSelectionLabel(results.selectionMode, results.baseDice)}
               </span>
-              <span className="font-mono text-lg text-zinc-900">{results.selectedRolls.join(' + ')}</span>
+              <span className="font-mono text-lg text-zinc-900">{results.baseDice} dice</span>
             </p>
             <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Base total</span>
-              <span className="font-mono text-lg text-zinc-900">{results.baseTotal}</span>
+              <span className="text-zinc-600">Expected total</span>
+              <span className="font-mono text-lg text-zinc-900">{results.expectedTotal.toFixed(2)}</span>
             </p>
-            <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2">
-              <span className="text-zinc-600">Final total</span>
-              <span className="font-mono text-lg text-zinc-900">{results.finalTotal}</span>
-            </p>
-            <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-200">
-                  Outcome
-                </span>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                  Injury table
-                </p>
+            <div className="border-2 border-zinc-900 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Outcome chances</p>
+              <div className="mt-3 space-y-2 text-sm text-zinc-700">
+                <div className="flex items-center justify-between border-b border-zinc-200 pb-1">
+                  <span>No effect</span>
+                  <span className="font-mono">{(results.outcomeChances.noEffect * 100).toFixed(2)}%</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-zinc-200 pb-1">
+                  <span>Minor hit</span>
+                  <span className="font-mono">{(results.outcomeChances.minorHit * 100).toFixed(2)}%</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-zinc-200 pb-1">
+                  <span>Down</span>
+                  <span className="font-mono">{(results.outcomeChances.down * 100).toFixed(2)}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Out of action</span>
+                  <span className="font-mono">{(results.outcomeChances.outOfAction * 100).toFixed(2)}%</span>
+                </div>
               </div>
-              <span className="font-mono text-2xl font-bold text-white sm:text-3xl">
-                {results.outcome}
-              </span>
             </div>
-            <p className="text-xs text-zinc-600">
-              Rolls: <span className="font-mono text-zinc-900">{results.rolls.join(', ') || '-'}</span>
-            </p>
           </div>
         </Card>
       ) : null}
@@ -245,11 +253,12 @@ export default function TrechInjuryRollCalculator({
           { label: 'Net dice', value: String(debug.netDice) },
           { label: 'Base dice', value: String(debug.baseDice) },
           { label: 'Total dice', value: String(debug.totalDice) },
-          { label: 'Initial rolls', value: debug.rolls.join(', ') || '-' },
-          { label: 'Selected rolls', value: debug.selectedRolls.join(', ') || '-' },
           { label: 'Armor applied', value: String(debug.armorApplied) },
-          { label: 'Base total', value: String(debug.baseTotal) },
-          { label: 'Final total', value: String(debug.finalTotal) },
+          { label: 'Expected total', value: debug.expectedTotal.toFixed(2) },
+          { label: 'No effect', value: `${(debug.outcomeChances.noEffect * 100).toFixed(2)}%` },
+          { label: 'Minor hit', value: `${(debug.outcomeChances.minorHit * 100).toFixed(2)}%` },
+          { label: 'Down', value: `${(debug.outcomeChances.down * 100).toFixed(2)}%` },
+          { label: 'Out of action', value: `${(debug.outcomeChances.outOfAction * 100).toFixed(2)}%` },
         ]}
       />
     </Card>

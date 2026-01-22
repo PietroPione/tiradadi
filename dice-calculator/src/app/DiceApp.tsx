@@ -17,6 +17,10 @@ import ProbabilityTypeSelector from '@/components/navigation/ProbabilityTypeSele
 import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/dice-calculator';
 import TrechGenericRollCalculator from '@/components/calculator/TrechGenericRollCalculator';
 import TrechInjuryRollCalculator from '@/components/calculator/TrechInjuryRollCalculator';
+import TrechGenericProbabilityCalculator from '@/components/calculator/TrechGenericProbabilityCalculator';
+import TrechInjuryProbabilityCalculator from '@/components/calculator/TrechInjuryProbabilityCalculator';
+import TrechGenericCompareRange from '@/components/calculator/TrechGenericCompareRange';
+import TrechInjuryCompareRange from '@/components/calculator/TrechInjuryCompareRange';
 import {
   applyRerollWithDebug,
   getFaceProbabilitiesWithReroll,
@@ -164,6 +168,14 @@ export default function DiceApp() {
   const [trechPositiveModifier, setTrechPositiveModifier] = useState('0');
   const [trechNegativeModifier, setTrechNegativeModifier] = useState('0');
   const [trechErrorMessage, setTrechErrorMessage] = useState('');
+  const [trechProbabilityResults, setTrechProbabilityResults] = useState<{
+    expectedTotal: number;
+    successChance: number;
+    selectionMode: 'highest' | 'lowest' | 'normal';
+    baseDice: number;
+    totalDice: number;
+    netDice: number;
+  } | null>(null);
   const [trechResults, setTrechResults] = useState<{
     rolls: number[];
     selectedRolls: number[];
@@ -176,11 +188,37 @@ export default function DiceApp() {
     rolls: [] as number[],
     selectedRolls: [] as number[],
   });
+  const [trechProbabilityDebug, setTrechProbabilityDebug] = useState({
+    baseDice: 2,
+    totalDice: 2,
+    netDice: 0,
+    expectedTotal: 0,
+    successChance: 0,
+  });
   const [trechInjuryPlusDice, setTrechInjuryPlusDice] = useState('0');
   const [trechInjuryMinusDice, setTrechInjuryMinusDice] = useState('0');
   const [trechInjuryPositiveModifier, setTrechInjuryPositiveModifier] = useState('0');
   const [trechInjuryNegativeModifier, setTrechInjuryNegativeModifier] = useState('0');
+  const [trechInjuryWithThreeDice, setTrechInjuryWithThreeDice] = useState(false);
+  const [trechInjuryTargetArmor, setTrechInjuryTargetArmor] = useState('0');
+  const [trechInjuryNoArmorSave, setTrechInjuryNoArmorSave] = useState(false);
+  const [trechInjuryArmorPositive, setTrechInjuryArmorPositive] = useState('0');
+  const [trechInjuryArmorNegative, setTrechInjuryArmorNegative] = useState('0');
   const [trechInjuryErrorMessage, setTrechInjuryErrorMessage] = useState('');
+  const [trechInjuryProbabilityResults, setTrechInjuryProbabilityResults] = useState<{
+    expectedTotal: number;
+    outcomeChances: {
+      noEffect: number;
+      minorHit: number;
+      down: number;
+      outOfAction: number;
+    };
+    selectionMode: 'highest' | 'lowest' | 'normal';
+    baseDice: number;
+    totalDice: number;
+    netDice: number;
+    armorApplied: number;
+  } | null>(null);
   const [trechInjuryResults, setTrechInjuryResults] = useState<{
     rolls: number[];
     selectedRolls: number[];
@@ -192,6 +230,28 @@ export default function DiceApp() {
   const [trechInjuryDebug, setTrechInjuryDebug] = useState({
     rolls: [] as number[],
     selectedRolls: [] as number[],
+    baseDice: 2,
+    totalDice: 2,
+    netDice: 0,
+    targetArmor: 0,
+    armorPositive: 0,
+    armorNegative: 0,
+    armorApplied: 0,
+    baseTotal: 0,
+    finalTotal: 0,
+  });
+  const [trechInjuryProbabilityDebug, setTrechInjuryProbabilityDebug] = useState({
+    baseDice: 2,
+    totalDice: 2,
+    netDice: 0,
+    armorApplied: 0,
+    expectedTotal: 0,
+    outcomeChances: {
+      noEffect: 0,
+      minorHit: 0,
+      down: 0,
+      outOfAction: 0,
+    },
   });
   const [combatRerollHit, setCombatRerollHit] = useState<RerollState>({
     enabled: false,
@@ -571,11 +631,11 @@ export default function DiceApp() {
     setTrechDebug({ rolls, selectedRolls });
   };
 
-  const handleTrechInjuryRoll = () => {
-    const parsedPlus = Number.parseInt(trechInjuryPlusDice, 10);
-    const parsedMinus = Number.parseInt(trechInjuryMinusDice, 10);
-    const parsedPositive = Number.parseInt(trechInjuryPositiveModifier, 10);
-    const parsedNegative = Number.parseInt(trechInjuryNegativeModifier, 10);
+  const handleTrechGenericProbabilityCalculate = () => {
+    const parsedPlus = Number.parseInt(trechPlusDice, 10);
+    const parsedMinus = Number.parseInt(trechMinusDice, 10);
+    const parsedPositive = Number.parseInt(trechPositiveModifier, 10);
+    const parsedNegative = Number.parseInt(trechNegativeModifier, 10);
 
     if (
       Number.isNaN(parsedPlus) ||
@@ -585,31 +645,107 @@ export default function DiceApp() {
       parsedPlus < 0 ||
       parsedMinus < 0
     ) {
+      setTrechErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    setTrechErrorMessage('');
+    const baseDice = 2;
+    const netDice = parsedPlus - parsedMinus;
+    const totalDice = baseDice + Math.abs(netDice);
+    const iterations = 20000;
+    let totalSum = 0;
+    let successCount = 0;
+    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
+
+    for (let i = 0; i < iterations; i += 1) {
+      const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
+      const sorted = [...rolls].sort((a, b) => a - b);
+      let selected = sorted;
+      if (netDice > 0) {
+        selected = sorted.slice(-baseDice);
+        selectionMode = 'highest';
+      } else if (netDice < 0) {
+        selected = sorted.slice(0, baseDice);
+        selectionMode = 'lowest';
+      }
+      const baseTotal = selected.reduce((sum, roll) => sum + roll, 0);
+      const finalTotal = baseTotal + parsedPositive - parsedNegative;
+      totalSum += finalTotal;
+      if (finalTotal >= 7) {
+        successCount += 1;
+      }
+    }
+
+    const expectedTotal = totalSum / iterations;
+    const successChance = successCount / iterations;
+
+    setTrechProbabilityResults({
+      expectedTotal,
+      successChance,
+      selectionMode,
+      baseDice,
+      totalDice,
+      netDice,
+    });
+    setTrechProbabilityDebug({
+      baseDice,
+      totalDice,
+      netDice,
+      expectedTotal,
+      successChance,
+    });
+  };
+
+  const handleTrechInjuryRoll = () => {
+    const parsedPlus = Number.parseInt(trechInjuryPlusDice, 10);
+    const parsedMinus = Number.parseInt(trechInjuryMinusDice, 10);
+    const parsedPositive = Number.parseInt(trechInjuryPositiveModifier, 10);
+    const parsedNegative = Number.parseInt(trechInjuryNegativeModifier, 10);
+    const parsedTargetArmor = Number.parseInt(trechInjuryTargetArmor, 10);
+    const parsedArmorPositive = Number.parseInt(trechInjuryArmorPositive, 10);
+    const parsedArmorNegative = Number.parseInt(trechInjuryArmorNegative, 10);
+
+    if (
+      Number.isNaN(parsedPlus) ||
+      Number.isNaN(parsedMinus) ||
+      Number.isNaN(parsedPositive) ||
+      Number.isNaN(parsedNegative) ||
+      Number.isNaN(parsedTargetArmor) ||
+      Number.isNaN(parsedArmorPositive) ||
+      Number.isNaN(parsedArmorNegative) ||
+      parsedPlus < 0 ||
+      parsedMinus < 0
+    ) {
       setTrechInjuryErrorMessage('Devi inserire un risultato di dado');
       return;
     }
 
     setTrechInjuryErrorMessage('');
+    const baseDice = trechInjuryWithThreeDice ? 3 : 2;
     const netDice = parsedPlus - parsedMinus;
     const extraDice = Math.abs(netDice);
-    const totalDice = 2 + extraDice;
+    const totalDice = baseDice + extraDice;
     const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
     const sortedRolls = [...rolls].sort((a, b) => a - b);
     let selectedRolls: number[] = [];
     let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
 
     if (netDice > 0) {
-      selectedRolls = sortedRolls.slice(-2);
+      selectedRolls = sortedRolls.slice(-baseDice);
       selectionMode = 'highest';
     } else if (netDice < 0) {
-      selectedRolls = sortedRolls.slice(0, 2);
+      selectedRolls = sortedRolls.slice(0, baseDice);
       selectionMode = 'lowest';
     } else {
       selectedRolls = sortedRolls;
     }
 
     const baseTotal = selectedRolls.reduce((sum, roll) => sum + roll, 0);
-    const finalTotal = baseTotal + parsedPositive - parsedNegative;
+    const armorValue = trechInjuryNoArmorSave
+      ? 0
+      : Math.max(0, parsedTargetArmor + parsedArmorPositive - parsedArmorNegative);
+    const finalTotal = baseTotal + parsedPositive - parsedNegative - armorValue;
     let outcome: 'No effect' | 'Minor hit' | 'Down' | 'Out of action' = 'Minor hit';
     if (finalTotal <= 1) {
       outcome = 'No effect';
@@ -629,7 +765,107 @@ export default function DiceApp() {
       outcome,
       selectionMode,
     });
-    setTrechInjuryDebug({ rolls, selectedRolls });
+    setTrechInjuryDebug({
+      rolls,
+      selectedRolls,
+      baseDice,
+      totalDice,
+      netDice,
+      targetArmor: parsedTargetArmor,
+      armorPositive: parsedArmorPositive,
+      armorNegative: parsedArmorNegative,
+      armorApplied: armorValue,
+      baseTotal,
+      finalTotal,
+    });
+  };
+
+  const handleTrechInjuryProbabilityCalculate = () => {
+    const parsedPlus = Number.parseInt(trechInjuryPlusDice, 10);
+    const parsedMinus = Number.parseInt(trechInjuryMinusDice, 10);
+    const parsedPositive = Number.parseInt(trechInjuryPositiveModifier, 10);
+    const parsedNegative = Number.parseInt(trechInjuryNegativeModifier, 10);
+    const parsedTargetArmor = Number.parseInt(trechInjuryTargetArmor, 10);
+    const parsedArmorPositive = Number.parseInt(trechInjuryArmorPositive, 10);
+    const parsedArmorNegative = Number.parseInt(trechInjuryArmorNegative, 10);
+
+    if (
+      Number.isNaN(parsedPlus) ||
+      Number.isNaN(parsedMinus) ||
+      Number.isNaN(parsedPositive) ||
+      Number.isNaN(parsedNegative) ||
+      Number.isNaN(parsedTargetArmor) ||
+      Number.isNaN(parsedArmorPositive) ||
+      Number.isNaN(parsedArmorNegative) ||
+      parsedPlus < 0 ||
+      parsedMinus < 0
+    ) {
+      setTrechInjuryErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    setTrechInjuryErrorMessage('');
+    const baseDice = trechInjuryWithThreeDice ? 3 : 2;
+    const netDice = parsedPlus - parsedMinus;
+    const totalDice = baseDice + Math.abs(netDice);
+    const armorValue = trechInjuryNoArmorSave
+      ? 0
+      : Math.max(0, parsedTargetArmor + parsedArmorPositive - parsedArmorNegative);
+    const iterations = 20000;
+    let totalSum = 0;
+    const outcomeCounts = { noEffect: 0, minorHit: 0, down: 0, outOfAction: 0 };
+    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
+
+    for (let i = 0; i < iterations; i += 1) {
+      const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
+      const sorted = [...rolls].sort((a, b) => a - b);
+      let selected = sorted;
+      if (netDice > 0) {
+        selected = sorted.slice(-baseDice);
+        selectionMode = 'highest';
+      } else if (netDice < 0) {
+        selected = sorted.slice(0, baseDice);
+        selectionMode = 'lowest';
+      }
+      const baseTotal = selected.reduce((sum, roll) => sum + roll, 0);
+      const finalTotal = baseTotal + parsedPositive - parsedNegative - armorValue;
+      totalSum += finalTotal;
+      if (finalTotal <= 1) {
+        outcomeCounts.noEffect += 1;
+      } else if (finalTotal <= 6) {
+        outcomeCounts.minorHit += 1;
+      } else if (finalTotal <= 8) {
+        outcomeCounts.down += 1;
+      } else {
+        outcomeCounts.outOfAction += 1;
+      }
+    }
+
+    const expectedTotal = totalSum / iterations;
+    const outcomeChances = {
+      noEffect: outcomeCounts.noEffect / iterations,
+      minorHit: outcomeCounts.minorHit / iterations,
+      down: outcomeCounts.down / iterations,
+      outOfAction: outcomeCounts.outOfAction / iterations,
+    };
+
+    setTrechInjuryProbabilityResults({
+      expectedTotal,
+      outcomeChances,
+      selectionMode,
+      baseDice,
+      totalDice,
+      netDice,
+      armorApplied: armorValue,
+    });
+    setTrechInjuryProbabilityDebug({
+      baseDice,
+      totalDice,
+      netDice,
+      armorApplied: armorValue,
+      expectedTotal,
+      outcomeChances,
+    });
   };
 
   const handleShootingAverageCalculate = () => {
@@ -1215,37 +1451,169 @@ export default function DiceApp() {
             ) : phase === 'challenge' ? (
               <ChallengeSimulator mode={appMode ?? 'probability'} onBack={handlePhaseBack} />
             ) : phase === 'tc-generic' ? (
-              <TrechGenericRollCalculator
-                plusDice={trechPlusDice}
-                minusDice={trechMinusDice}
-                positiveModifier={trechPositiveModifier}
-                negativeModifier={trechNegativeModifier}
-                errorMessage={trechErrorMessage}
-                results={trechResults}
-                debug={trechDebug}
-                onPlusDiceChange={setTrechPlusDice}
-                onMinusDiceChange={setTrechMinusDice}
-                onPositiveModifierChange={setTrechPositiveModifier}
-                onNegativeModifierChange={setTrechNegativeModifier}
-                onRoll={handleTrechGenericRoll}
-                onBack={handlePhaseBack}
-              />
+              appMode === 'probability' ? (
+                appProbabilityMode === 'range' ? (
+                  <TrechGenericCompareRange
+                    plusDice={trechPlusDice}
+                    minusDice={trechMinusDice}
+                    positiveModifier={trechPositiveModifier}
+                    negativeModifier={trechNegativeModifier}
+                    onBack={handlePhaseBack}
+                    backLabel="Back to phases"
+                    rightSlot={(
+                      <button
+                        type="button"
+                        onClick={() => setProbabilityModeAll('single')}
+                        className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                      >
+                        Single value
+                      </button>
+                    )}
+                    onPlusDiceChange={setTrechPlusDice}
+                    onMinusDiceChange={setTrechMinusDice}
+                    onPositiveModifierChange={setTrechPositiveModifier}
+                    onNegativeModifierChange={setTrechNegativeModifier}
+                  />
+                ) : (
+                  <TrechGenericProbabilityCalculator
+                    plusDice={trechPlusDice}
+                    minusDice={trechMinusDice}
+                    positiveModifier={trechPositiveModifier}
+                    negativeModifier={trechNegativeModifier}
+                    errorMessage={trechErrorMessage}
+                    results={trechProbabilityResults}
+                    debug={trechProbabilityDebug}
+                    onPlusDiceChange={setTrechPlusDice}
+                    onMinusDiceChange={setTrechMinusDice}
+                    onPositiveModifierChange={setTrechPositiveModifier}
+                    onNegativeModifierChange={setTrechNegativeModifier}
+                    onCalculate={handleTrechGenericProbabilityCalculate}
+                    onBack={handlePhaseBack}
+                    rightSlot={(
+                      <button
+                        type="button"
+                        onClick={() => setProbabilityModeAll('range')}
+                        className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                      >
+                        Comparation
+                      </button>
+                    )}
+                  />
+                )
+              ) : (
+                <TrechGenericRollCalculator
+                  plusDice={trechPlusDice}
+                  minusDice={trechMinusDice}
+                  positiveModifier={trechPositiveModifier}
+                  negativeModifier={trechNegativeModifier}
+                  errorMessage={trechErrorMessage}
+                  results={trechResults}
+                  debug={trechDebug}
+                  onPlusDiceChange={setTrechPlusDice}
+                  onMinusDiceChange={setTrechMinusDice}
+                  onPositiveModifierChange={setTrechPositiveModifier}
+                  onNegativeModifierChange={setTrechNegativeModifier}
+                  onRoll={handleTrechGenericRoll}
+                  onBack={handlePhaseBack}
+                />
+              )
             ) : phase === 'tc-injury' ? (
-              <TrechInjuryRollCalculator
-                plusDice={trechInjuryPlusDice}
-                minusDice={trechInjuryMinusDice}
-                positiveModifier={trechInjuryPositiveModifier}
-                negativeModifier={trechInjuryNegativeModifier}
-                errorMessage={trechInjuryErrorMessage}
-                results={trechInjuryResults}
-                debug={trechInjuryDebug}
-                onPlusDiceChange={setTrechInjuryPlusDice}
-                onMinusDiceChange={setTrechInjuryMinusDice}
-                onPositiveModifierChange={setTrechInjuryPositiveModifier}
-                onNegativeModifierChange={setTrechInjuryNegativeModifier}
-                onRoll={handleTrechInjuryRoll}
-                onBack={handlePhaseBack}
-              />
+              appMode === 'probability' ? (
+                appProbabilityMode === 'range' ? (
+                  <TrechInjuryCompareRange
+                    plusDice={trechInjuryPlusDice}
+                    minusDice={trechInjuryMinusDice}
+                    positiveModifier={trechInjuryPositiveModifier}
+                    negativeModifier={trechInjuryNegativeModifier}
+                    withThreeDice={trechInjuryWithThreeDice}
+                    targetArmor={trechInjuryTargetArmor}
+                    noArmorSave={trechInjuryNoArmorSave}
+                    armorPositiveModifier={trechInjuryArmorPositive}
+                    armorNegativeModifier={trechInjuryArmorNegative}
+                    onBack={handlePhaseBack}
+                    backLabel="Back to phases"
+                    rightSlot={(
+                      <button
+                        type="button"
+                        onClick={() => setProbabilityModeAll('single')}
+                        className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                      >
+                        Single value
+                      </button>
+                    )}
+                    onPlusDiceChange={setTrechInjuryPlusDice}
+                    onMinusDiceChange={setTrechInjuryMinusDice}
+                    onPositiveModifierChange={setTrechInjuryPositiveModifier}
+                    onNegativeModifierChange={setTrechInjuryNegativeModifier}
+                    onWithThreeDiceChange={setTrechInjuryWithThreeDice}
+                    onTargetArmorChange={setTrechInjuryTargetArmor}
+                    onNoArmorSaveChange={setTrechInjuryNoArmorSave}
+                    onArmorPositiveModifierChange={setTrechInjuryArmorPositive}
+                    onArmorNegativeModifierChange={setTrechInjuryArmorNegative}
+                  />
+                ) : (
+                  <TrechInjuryProbabilityCalculator
+                    plusDice={trechInjuryPlusDice}
+                    minusDice={trechInjuryMinusDice}
+                    positiveModifier={trechInjuryPositiveModifier}
+                    negativeModifier={trechInjuryNegativeModifier}
+                    withThreeDice={trechInjuryWithThreeDice}
+                    targetArmor={trechInjuryTargetArmor}
+                    noArmorSave={trechInjuryNoArmorSave}
+                    armorPositiveModifier={trechInjuryArmorPositive}
+                    armorNegativeModifier={trechInjuryArmorNegative}
+                    errorMessage={trechInjuryErrorMessage}
+                    results={trechInjuryProbabilityResults}
+                    debug={trechInjuryProbabilityDebug}
+                    onPlusDiceChange={setTrechInjuryPlusDice}
+                    onMinusDiceChange={setTrechInjuryMinusDice}
+                    onPositiveModifierChange={setTrechInjuryPositiveModifier}
+                    onNegativeModifierChange={setTrechInjuryNegativeModifier}
+                    onWithThreeDiceChange={setTrechInjuryWithThreeDice}
+                    onTargetArmorChange={setTrechInjuryTargetArmor}
+                    onNoArmorSaveChange={setTrechInjuryNoArmorSave}
+                    onArmorPositiveModifierChange={setTrechInjuryArmorPositive}
+                    onArmorNegativeModifierChange={setTrechInjuryArmorNegative}
+                    onCalculate={handleTrechInjuryProbabilityCalculate}
+                    onBack={handlePhaseBack}
+                    rightSlot={(
+                      <button
+                        type="button"
+                        onClick={() => setProbabilityModeAll('range')}
+                        className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                      >
+                        Comparation
+                      </button>
+                    )}
+                  />
+                )
+              ) : (
+                <TrechInjuryRollCalculator
+                  plusDice={trechInjuryPlusDice}
+                  minusDice={trechInjuryMinusDice}
+                  positiveModifier={trechInjuryPositiveModifier}
+                  negativeModifier={trechInjuryNegativeModifier}
+                  withThreeDice={trechInjuryWithThreeDice}
+                  targetArmor={trechInjuryTargetArmor}
+                  noArmorSave={trechInjuryNoArmorSave}
+                  armorPositiveModifier={trechInjuryArmorPositive}
+                  armorNegativeModifier={trechInjuryArmorNegative}
+                  errorMessage={trechInjuryErrorMessage}
+                  results={trechInjuryResults}
+                  debug={trechInjuryDebug}
+                  onPlusDiceChange={setTrechInjuryPlusDice}
+                  onMinusDiceChange={setTrechInjuryMinusDice}
+                  onPositiveModifierChange={setTrechInjuryPositiveModifier}
+                  onNegativeModifierChange={setTrechInjuryNegativeModifier}
+                  onWithThreeDiceChange={setTrechInjuryWithThreeDice}
+                  onTargetArmorChange={setTrechInjuryTargetArmor}
+                  onNoArmorSaveChange={setTrechInjuryNoArmorSave}
+                  onArmorPositiveModifierChange={setTrechInjuryArmorPositive}
+                  onArmorNegativeModifierChange={setTrechInjuryArmorNegative}
+                  onRoll={handleTrechInjuryRoll}
+                  onBack={handlePhaseBack}
+                />
+              )
             ) : (
               <>
                 {appMode === 'probability' && appProbabilityMode === 'range' ? null : (
