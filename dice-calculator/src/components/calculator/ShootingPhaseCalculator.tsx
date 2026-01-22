@@ -9,6 +9,9 @@ import DebugPanel from '@/components/ui/DebugPanel';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
 import StatGrid from '@/components/ui/StatGrid';
+import ProbabilityModeSelector from '@/components/calculator/ProbabilityModeSelector';
+import ShootingCompareRange from '@/components/calculator/ShootingCompareRange';
+import OptionGroup from '@/components/ui/OptionGroup';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -24,6 +27,7 @@ const formatRerollLabel = (config: RerollConfig) => {
 type ShootingPhaseCalculatorProps = {
   diceCount: string;
   mode: 'probability' | 'throw';
+  probabilityMode: 'single' | 'range' | null;
   ballisticSkill: string;
   poisonedAttack: boolean;
   autoHit: boolean;
@@ -64,6 +68,7 @@ type ShootingPhaseCalculatorProps = {
   };
   onDiceCountChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
+  onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
   onBallisticSkillChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
   onAutoHitChange: (value: boolean) => void;
@@ -87,6 +92,7 @@ type ShootingPhaseCalculatorProps = {
 export default function ShootingPhaseCalculator({
   diceCount,
   mode,
+  probabilityMode,
   ballisticSkill,
   poisonedAttack,
   autoHit,
@@ -111,6 +117,7 @@ export default function ShootingPhaseCalculator({
   debug,
   onDiceCountChange,
   onModeChange,
+  onProbabilityModeChange,
   onBallisticSkillChange,
   onPoisonedAttackChange,
   onAutoHitChange,
@@ -131,6 +138,54 @@ export default function ShootingPhaseCalculator({
   onRerollWardChange,
 }: ShootingPhaseCalculatorProps) {
   const isProbability = mode === 'probability';
+  if (isProbability && probabilityMode !== 'single') {
+    return probabilityMode === null ? (
+      <ProbabilityModeSelector
+        title="Shooting phase"
+        subtitle="Choose probability mode"
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        onSelect={onProbabilityModeChange}
+      />
+    ) : (
+      <ShootingCompareRange
+        diceCount={diceCount}
+        ballisticSkill={ballisticSkill}
+        modifiers={modifiers}
+        poisonedAttack={poisonedAttack}
+        autoHit={autoHit}
+        multipleWoundsEnabled={multipleWoundsEnabled}
+        multipleWoundsValue={multipleWoundsValue}
+        hitStrength={hitStrength}
+        woundValue={woundValue}
+        armorSave={armorSave}
+        wardSave={wardSave}
+        rerollHitConfig={rerollHitConfig}
+        rerollWoundConfig={rerollWoundConfig}
+        rerollArmorConfig={rerollArmorConfig}
+        rerollWardConfig={rerollWardConfig}
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        onDiceCountChange={onDiceCountChange}
+        onBallisticSkillChange={onBallisticSkillChange}
+        onModifierChange={onModifierChange}
+        onPoisonedAttackChange={onPoisonedAttackChange}
+        onAutoHitChange={onAutoHitChange}
+        onMultipleWoundsChange={onMultipleWoundsChange}
+        onMultipleWoundsValueChange={onMultipleWoundsValueChange}
+        onHitStrengthChange={onHitStrengthChange}
+        onWoundValueChange={onWoundValueChange}
+        onArmorSaveChange={onArmorSaveChange}
+        onWardSaveChange={onWardSaveChange}
+        onRerollHitChange={onRerollHitChange}
+        onRerollWoundChange={onRerollWoundChange}
+        onRerollArmorChange={onRerollArmorChange}
+        onRerollWardChange={onRerollWardChange}
+      />
+    );
+  }
   const modifiersLabel = [
     modifiers.longRange ? 'Long range' : null,
     modifiers.movement ? 'Movement' : null,
@@ -241,7 +296,7 @@ export default function ShootingPhaseCalculator({
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5">
           <SectionBlock title="Special rules" contentClassName="mt-3">
-            <div className="space-y-3">
+            <OptionGroup layout="stack">
               {!autoHit ? (
                 <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                   <input
@@ -262,12 +317,12 @@ export default function ShootingPhaseCalculator({
                 />
                 Auto-hit
               </label>
-            </div>
+            </OptionGroup>
           </SectionBlock>
 
           {!autoHit ? (
             <SectionBlock title="Cover" contentClassName="mt-3">
-              <div className="space-y-3">
+              <OptionGroup layout="stack">
                 <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                   <input
                     type="checkbox"
@@ -286,14 +341,14 @@ export default function ShootingPhaseCalculator({
                   />
                   Hard cover
                 </label>
-              </div>
+              </OptionGroup>
             </SectionBlock>
           ) : null}
         </div>
 
         {!autoHit ? (
           <SectionBlock title="Modifiers" contentClassName="mt-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <OptionGroup layout="grid2">
               <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
                 <input
                   type="checkbox"
@@ -321,7 +376,7 @@ export default function ShootingPhaseCalculator({
                 />
                 Skirmisher target
               </label>
-            </div>
+            </OptionGroup>
           </SectionBlock>
         ) : null}
 

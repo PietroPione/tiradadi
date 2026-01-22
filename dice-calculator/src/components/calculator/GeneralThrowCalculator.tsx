@@ -8,6 +8,8 @@ import DebugPanel from '@/components/ui/DebugPanel';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
 import ToggleButton from '@/components/ui/ToggleButton';
+import ProbabilityModeSelector from '@/components/calculator/ProbabilityModeSelector';
+import GeneralCompareRange from '@/components/calculator/GeneralCompareRange';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -37,6 +39,7 @@ type GeneralThrowCalculatorProps = {
   objective: 'target' | 'total';
   targetValue: string;
   mode: 'probability' | 'throw';
+  probabilityMode: 'single' | 'range' | null;
   errorMessage: string;
   averageResults: GeneralAverageResults;
   throwResults: GeneralThrowResults;
@@ -53,6 +56,7 @@ type GeneralThrowCalculatorProps = {
   onObjectiveChange: (objective: 'target' | 'total') => void;
   onTargetValueChange: (value: string) => void;
   onModeChange: (mode: 'probability' | 'throw') => void;
+  onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
   onAverageCalculate: () => void;
   onThrowCalculate: () => void;
   onRerollChange: (config: RerollConfig) => void;
@@ -63,6 +67,7 @@ export default function GeneralThrowCalculator({
   objective,
   targetValue,
   mode,
+  probabilityMode,
   errorMessage,
   averageResults,
   throwResults,
@@ -75,11 +80,39 @@ export default function GeneralThrowCalculator({
   onObjectiveChange,
   onTargetValueChange,
   onModeChange,
+  onProbabilityModeChange,
   onAverageCalculate,
   onThrowCalculate,
   onRerollChange,
 }: GeneralThrowCalculatorProps) {
   const isProbability = mode === 'probability';
+
+  if (isProbability && probabilityMode !== 'single') {
+    return probabilityMode === null ? (
+      <ProbabilityModeSelector
+        title="General throw"
+        subtitle="Choose probability mode"
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        onSelect={onProbabilityModeChange}
+      />
+    ) : (
+      <GeneralCompareRange
+        diceCount={diceCount}
+        objective={objective}
+        targetValue={targetValue}
+        rerollConfig={rerollConfig}
+        onBack={onBack}
+        backLabel="Back to phases"
+        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        onDiceCountChange={onDiceCountChange}
+        onObjectiveChange={onObjectiveChange}
+        onTargetValueChange={onTargetValueChange}
+        onRerollChange={onRerollChange}
+      />
+    );
+  }
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">

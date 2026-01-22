@@ -9,6 +9,8 @@ import ProbabilityCalculator from '@/components/calculator/ProbabilityCalculator
 import ShootingPhaseCalculator from '@/components/calculator/ShootingPhaseCalculator';
 import ThrowDiceCalculator from '@/components/calculator/ThrowDiceCalculator';
 import ChallengeSimulator from '@/components/calculator/ChallengeSimulator';
+import ProbabilityModeSelector from '@/components/calculator/ProbabilityModeSelector';
+import CombatCompareRange from '@/components/calculator/CombatCompareRange';
 import type { RerollConfig } from '@/components/calculator/ReRollOptions';
 import PhaseSelector from '@/components/navigation/PhaseSelector';
 import SystemSelector from '@/components/navigation/SystemSelector';
@@ -32,6 +34,7 @@ type RerollState = RerollConfig;
 export default function DiceApp() {
   const [diceCount, setDiceCount] = useState('10');
   const [mode, setMode] = useState<'probability' | 'throw'>('probability');
+  const [combatProbabilityMode, setCombatProbabilityMode] = useState<'single' | 'range' | null>(null);
   const [attackersAc, setAttackersAc] = useState('1');
   const [defendersAc, setDefendersAc] = useState('1');
   const [throwHitStrength, setThrowHitStrength] = useState('3');
@@ -52,6 +55,7 @@ export default function DiceApp() {
   const [gameSystem, setGameSystem] = useState<GameSystem | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [generalMode, setGeneralMode] = useState<'probability' | 'throw'>('probability');
+  const [generalProbabilityMode, setGeneralProbabilityMode] = useState<'single' | 'range' | null>(null);
   const [generalDiceCount, setGeneralDiceCount] = useState('10');
   const [generalObjective, setGeneralObjective] = useState<'target' | 'total'>('target');
   const [generalTargetValue, setGeneralTargetValue] = useState('3');
@@ -87,6 +91,7 @@ export default function DiceApp() {
   const [shootingMultipleWoundsEnabled, setShootingMultipleWoundsEnabled] = useState(false);
   const [shootingMultipleWoundsValue, setShootingMultipleWoundsValue] = useState('');
   const [shootingMode, setShootingMode] = useState<'probability' | 'throw'>('probability');
+  const [shootingProbabilityMode, setShootingProbabilityMode] = useState<'single' | 'range' | null>(null);
   const [shootingDiceCount, setShootingDiceCount] = useState('10');
   const [shootingHitStrength, setShootingHitStrength] = useState('3');
   const [shootingTargetToughness, setShootingTargetToughness] = useState('3');
@@ -300,6 +305,27 @@ export default function DiceApp() {
 
   const handlePhaseBack = () => {
     setPhase(null);
+  };
+
+  const handleCombatModeChange = (nextMode: 'probability' | 'throw') => {
+    setMode(nextMode);
+    if (nextMode === 'probability') {
+      setCombatProbabilityMode(null);
+    }
+  };
+
+  const handleGeneralModeChange = (nextMode: 'probability' | 'throw') => {
+    setGeneralMode(nextMode);
+    if (nextMode === 'probability') {
+      setGeneralProbabilityMode(null);
+    }
+  };
+
+  const handleShootingModeChange = (nextMode: 'probability' | 'throw') => {
+    setShootingMode(nextMode);
+    if (nextMode === 'probability') {
+      setShootingProbabilityMode(null);
+    }
   };
 
   const parseMultipleWoundsValue = (rawValue: string) => {
@@ -1089,6 +1115,7 @@ export default function DiceApp() {
                 objective={generalObjective}
                 targetValue={generalTargetValue}
                 mode={generalMode}
+                probabilityMode={generalProbabilityMode}
                 errorMessage={generalErrorMessage}
                 averageResults={generalAverageResults}
                 throwResults={generalThrowResults}
@@ -1100,7 +1127,8 @@ export default function DiceApp() {
                 onDiceCountChange={setGeneralDiceCount}
                 onObjectiveChange={setGeneralObjective}
                 onTargetValueChange={setGeneralTargetValue}
-                onModeChange={setGeneralMode}
+                onModeChange={handleGeneralModeChange}
+                onProbabilityModeChange={setGeneralProbabilityMode}
                 onAverageCalculate={handleGeneralAverageCalculate}
                 onThrowCalculate={handleGeneralThrowCalculate}
                 onRerollChange={setGeneralReroll}
@@ -1109,6 +1137,7 @@ export default function DiceApp() {
               <ShootingPhaseCalculator
                 diceCount={shootingDiceCount}
                 mode={shootingMode}
+                probabilityMode={shootingProbabilityMode}
                 ballisticSkill={ballisticSkill}
                 poisonedAttack={shootingPoisonedAttack}
                 autoHit={shootingAutoHit}
@@ -1132,7 +1161,8 @@ export default function DiceApp() {
                 rerollWardConfig={shootingRerollWard}
                 debug={shootingDebug}
                 onDiceCountChange={setShootingDiceCount}
-                onModeChange={setShootingMode}
+                onModeChange={handleShootingModeChange}
+                onProbabilityModeChange={setShootingProbabilityMode}
                 onBallisticSkillChange={setBallisticSkill}
                 onPoisonedAttackChange={setShootingPoisonedAttack}
                 onAutoHitChange={handleShootingAutoHitChange}
@@ -1215,43 +1245,84 @@ export default function DiceApp() {
                 >
                   Back to phases
                 </button>
-                <ModeSwitch mode={mode} onModeChange={setMode} />
+                <ModeSwitch mode={mode} onModeChange={handleCombatModeChange} />
                 {mode === 'probability' ? (
-                  <ProbabilityCalculator
-                    diceCount={diceCount}
-                    hitValue={hitValue}
-                    poisonedAttack={poisonedAttack}
-                    predatoryFighter={predatoryFighter}
-                    predatoryFighterCount={predatoryFighterCount}
-                    multipleWoundsEnabled={multipleWoundsEnabled}
-                    multipleWoundsValue={multipleWoundsValue}
-                    hitStrength={hitStrength}
-                    woundValue={woundValue}
-                    armorSave={armorSave}
-                    wardSave={wardSave}
-                    errorMessage={errorMessage}
-                    results={results}
-                    rerollHitConfig={combatRerollHit}
-                    rerollWoundConfig={combatRerollWound}
-                    rerollArmorConfig={combatRerollArmor}
-                    rerollWardConfig={combatRerollWard}
-                    onDiceCountChange={setDiceCount}
-                    onHitValueChange={setHitValue}
-                    onPoisonedAttackChange={setPoisonedAttack}
-                    onPredatoryFighterChange={setPredatoryFighter}
-                    onPredatoryFighterCountChange={setPredatoryFighterCount}
-                    onMultipleWoundsChange={setMultipleWoundsEnabled}
-                    onMultipleWoundsValueChange={setMultipleWoundsValue}
-                    onHitStrengthChange={setHitStrength}
-                    onWoundValueChange={setWoundValue}
-                    onArmorSaveChange={setArmorSave}
-                    onWardSaveChange={setWardSave}
-                    onCalculate={handleCalculate}
-                    onRerollHitChange={setCombatRerollHit}
-                    onRerollWoundChange={setCombatRerollWound}
-                    onRerollArmorChange={setCombatRerollArmor}
-                    onRerollWardChange={setCombatRerollWard}
-                  />
+                  combatProbabilityMode === null ? (
+                    <ProbabilityModeSelector
+                      title="Combat phase"
+                      subtitle="Choose probability mode"
+                      onSelect={setCombatProbabilityMode}
+                    />
+                  ) : combatProbabilityMode === 'range' ? (
+                    <CombatCompareRange
+                      diceCount={diceCount}
+                      hitValue={hitValue}
+                      poisonedAttack={poisonedAttack}
+                      predatoryFighter={predatoryFighter}
+                      predatoryFighterCount={predatoryFighterCount}
+                      multipleWoundsEnabled={multipleWoundsEnabled}
+                      multipleWoundsValue={multipleWoundsValue}
+                      hitStrength={hitStrength}
+                      woundValue={woundValue}
+                      armorSave={armorSave}
+                      wardSave={wardSave}
+                      rerollHitConfig={combatRerollHit}
+                      rerollWoundConfig={combatRerollWound}
+                      rerollArmorConfig={combatRerollArmor}
+                      rerollWardConfig={combatRerollWard}
+                      onDiceCountChange={setDiceCount}
+                      onHitValueChange={setHitValue}
+                      onPoisonedAttackChange={setPoisonedAttack}
+                      onPredatoryFighterChange={setPredatoryFighter}
+                      onPredatoryFighterCountChange={setPredatoryFighterCount}
+                      onMultipleWoundsChange={setMultipleWoundsEnabled}
+                      onMultipleWoundsValueChange={setMultipleWoundsValue}
+                      onHitStrengthChange={setHitStrength}
+                      onWoundValueChange={setWoundValue}
+                      onArmorSaveChange={setArmorSave}
+                      onWardSaveChange={setWardSave}
+                      onRerollHitChange={setCombatRerollHit}
+                      onRerollWoundChange={setCombatRerollWound}
+                      onRerollArmorChange={setCombatRerollArmor}
+                      onRerollWardChange={setCombatRerollWard}
+                    />
+                  ) : (
+                    <ProbabilityCalculator
+                      diceCount={diceCount}
+                      hitValue={hitValue}
+                      poisonedAttack={poisonedAttack}
+                      predatoryFighter={predatoryFighter}
+                      predatoryFighterCount={predatoryFighterCount}
+                      multipleWoundsEnabled={multipleWoundsEnabled}
+                      multipleWoundsValue={multipleWoundsValue}
+                      hitStrength={hitStrength}
+                      woundValue={woundValue}
+                      armorSave={armorSave}
+                      wardSave={wardSave}
+                      errorMessage={errorMessage}
+                      results={results}
+                      rerollHitConfig={combatRerollHit}
+                      rerollWoundConfig={combatRerollWound}
+                      rerollArmorConfig={combatRerollArmor}
+                      rerollWardConfig={combatRerollWard}
+                      onDiceCountChange={setDiceCount}
+                      onHitValueChange={setHitValue}
+                      onPoisonedAttackChange={setPoisonedAttack}
+                      onPredatoryFighterChange={setPredatoryFighter}
+                      onPredatoryFighterCountChange={setPredatoryFighterCount}
+                      onMultipleWoundsChange={setMultipleWoundsEnabled}
+                      onMultipleWoundsValueChange={setMultipleWoundsValue}
+                      onHitStrengthChange={setHitStrength}
+                      onWoundValueChange={setWoundValue}
+                      onArmorSaveChange={setArmorSave}
+                      onWardSaveChange={setWardSave}
+                      onCalculate={handleCalculate}
+                      onRerollHitChange={setCombatRerollHit}
+                      onRerollWoundChange={setCombatRerollWound}
+                      onRerollArmorChange={setCombatRerollArmor}
+                      onRerollWardChange={setCombatRerollWard}
+                    />
+                  )
                 ) : (
                   <ThrowDiceCalculator
                     diceCount={diceCount}
