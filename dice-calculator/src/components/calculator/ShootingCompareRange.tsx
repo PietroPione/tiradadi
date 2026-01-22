@@ -546,211 +546,211 @@ export default function ShootingCompareRange({
             subtitle="Set your baseline for comparison"
           />
           <div className="mt-4 space-y-5">
-          <InputField
-            id="shootingCompareDiceCount"
-            label="Dice Count"
-            value={diceCount}
-            min="1"
-            onChange={onDiceCountChange}
-          />
-          <SectionBlock title="To hit" contentClassName="mt-3">
+            <InputField
+              id="shootingCompareDiceCount"
+              label="Dice Count"
+              value={diceCount}
+              min="1"
+              onChange={onDiceCountChange}
+            />
+            <SectionBlock title="To hit" contentClassName="mt-3">
+              {!autoHit ? (
+                <StatGrid
+                  fields={[
+                    {
+                      id: 'shootingCompareBallisticSkill',
+                      label: 'Balistic Skill',
+                      value: ballisticSkill,
+                      min: '1',
+                      max: '10',
+                      onChange: onBallisticSkillChange,
+                    },
+                  ]}
+                  columns={1}
+                />
+              ) : null}
+              <div className="mt-3 border-2 border-zinc-900 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  Result needed
+                </div>
+                <div className="text-lg font-semibold text-zinc-900">{resultDisplay.main}</div>
+                {resultDisplay.sub ? (
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
+                    {resultDisplay.sub}
+                  </div>
+                ) : null}
+              </div>
+              <OptionGroup layout="stack" className="mt-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={autoHit}
+                    onChange={(e) => onAutoHitChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Auto-hit
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={poisonedAttack}
+                    onChange={(e) => onPoisonedAttackChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Poisoned Attack
+                </label>
+              </OptionGroup>
+            </SectionBlock>
+
             {!autoHit ? (
+              <SectionBlock title="Hit modifiers" contentClassName="mt-3">
+                <OptionGroup layout="grid2">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.longRange}
+                      onChange={(e) => onModifierChange('longRange', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Long range
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.movement}
+                      onChange={(e) => onModifierChange('movement', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Movement
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.skirmisherTarget}
+                      onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Skirmisher target
+                  </label>
+                </OptionGroup>
+              </SectionBlock>
+            ) : null}
+
+            {!autoHit ? (
+              <SectionBlock title="Cover" contentClassName="mt-3">
+                <OptionGroup layout="grid2">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.lightCover}
+                      onChange={(e) => onModifierChange('lightCover', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Light cover
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.hardCover}
+                      onChange={(e) => onModifierChange('hardCover', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Hard cover
+                  </label>
+                </OptionGroup>
+              </SectionBlock>
+            ) : null}
+
+            <SectionBlock title="Re-roll to hit" contentClassName="mt-3">
+              <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
+            </SectionBlock>
+
+            <SectionBlock title="To wound" contentClassName="mt-3">
               <StatGrid
                 fields={[
                   {
-                    id: 'shootingCompareBallisticSkill',
-                    label: 'Balistic Skill',
-                    value: ballisticSkill,
+                    id: 'shootingCompareHitStrength',
+                    label: 'Hit Strength',
+                    value: hitStrength,
                     min: '1',
-                    max: '10',
-                    onChange: onBallisticSkillChange,
+                    onChange: onHitStrengthChange,
+                  },
+                  {
+                    id: 'shootingCompareWoundValue',
+                    label: 'To Wound (X+)',
+                    value: woundValue,
+                    min: '1',
+                    max: '7',
+                    onChange: onWoundValueChange,
                   },
                 ]}
-                columns={1}
               />
-            ) : null}
-            <div className="mt-3 border-2 border-zinc-900 px-4 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                Result needed
+              <div className="mt-3 space-y-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={multipleWoundsEnabled}
+                    onChange={(e) => onMultipleWoundsChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Multiple wounds
+                </label>
+                {multipleWoundsEnabled ? (
+                  <InputField
+                    id="shootingCompareMultipleWoundsValue"
+                    label="Multiple wounds value"
+                    value={multipleWoundsValue}
+                    type="text"
+                    pattern="^(?:[dD]\\d+|\\d+)$"
+                    title="Use a number or dX (e.g. 2 or d6)"
+                    placeholder="Value or dX (e.g. 2 or d6)"
+                    onChange={onMultipleWoundsValueChange}
+                  />
+                ) : null}
               </div>
-              <div className="text-lg font-semibold text-zinc-900">{resultDisplay.main}</div>
-              {resultDisplay.sub ? (
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
-                  {resultDisplay.sub}
+            </SectionBlock>
+
+            <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
+              <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
+            </SectionBlock>
+
+            <SectionBlock title="Savings" contentClassName="mt-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'shootingCompareArmorSave',
+                        label: 'Armor Save (X+)',
+                        value: armorSave,
+                        min: '1',
+                        max: '7',
+                        onChange: onArmorSaveChange,
+                      },
+                    ]}
+                  />
+                  <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
                 </div>
-              ) : null}
-            </div>
-            <OptionGroup layout="stack" className="mt-3">
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={autoHit}
-                  onChange={(e) => onAutoHitChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Auto-hit
-              </label>
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={poisonedAttack}
-                  onChange={(e) => onPoisonedAttackChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Poisoned Attack
-              </label>
-            </OptionGroup>
-          </SectionBlock>
-
-          {!autoHit ? (
-            <SectionBlock title="Hit modifiers" contentClassName="mt-3">
-              <OptionGroup layout="grid2">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.longRange}
-                    onChange={(e) => onModifierChange('longRange', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'shootingCompareWardSave',
+                        label: 'Ward Save (X+)',
+                        value: wardSave,
+                        min: '0',
+                        max: '7',
+                        placeholder: 'Leave empty if none',
+                        onChange: onWardSaveChange,
+                      },
+                    ]}
                   />
-                  Long range
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.movement}
-                    onChange={(e) => onModifierChange('movement', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Movement
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.skirmisherTarget}
-                    onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Skirmisher target
-                </label>
-              </OptionGroup>
-            </SectionBlock>
-          ) : null}
-
-          {!autoHit ? (
-            <SectionBlock title="Cover" contentClassName="mt-3">
-              <OptionGroup layout="grid2">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.lightCover}
-                    onChange={(e) => onModifierChange('lightCover', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Light cover
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.hardCover}
-                    onChange={(e) => onModifierChange('hardCover', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Hard cover
-                </label>
-              </OptionGroup>
-            </SectionBlock>
-          ) : null}
-
-          <SectionBlock title="Re-roll to hit" contentClassName="mt-3">
-            <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
-          </SectionBlock>
-
-          <SectionBlock title="To wound" contentClassName="mt-3">
-            <StatGrid
-              fields={[
-                {
-                  id: 'shootingCompareHitStrength',
-                  label: 'Hit Strength',
-                  value: hitStrength,
-                  min: '1',
-                  onChange: onHitStrengthChange,
-                },
-                {
-                  id: 'shootingCompareWoundValue',
-                  label: 'To Wound (X+)',
-                  value: woundValue,
-                  min: '1',
-                  max: '7',
-                  onChange: onWoundValueChange,
-                },
-              ]}
-            />
-            <div className="mt-3 space-y-3">
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={multipleWoundsEnabled}
-                  onChange={(e) => onMultipleWoundsChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Multiple wounds
-              </label>
-              {multipleWoundsEnabled ? (
-                <InputField
-                  id="shootingCompareMultipleWoundsValue"
-                  label="Multiple wounds value"
-                  value={multipleWoundsValue}
-                  type="text"
-                  pattern="^(?:[dD]\\d+|\\d+)$"
-                  title="Use a number or dX (e.g. 2 or d6)"
-                  placeholder="Value or dX (e.g. 2 or d6)"
-                  onChange={onMultipleWoundsValueChange}
-                />
-              ) : null}
-            </div>
-          </SectionBlock>
-
-          <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
-            <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
-          </SectionBlock>
-
-          <SectionBlock title="Savings" contentClassName="mt-3">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-              <div className="space-y-3">
-                <StatGrid
-                  columns={1}
-                  fields={[
-                    {
-                      id: 'shootingCompareArmorSave',
-                      label: 'Armor Save (X+)',
-                      value: armorSave,
-                      min: '1',
-                      max: '7',
-                      onChange: onArmorSaveChange,
-                    },
-                  ]}
-                />
-                <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+                  <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+                </div>
               </div>
-              <div className="space-y-3">
-                <StatGrid
-                  columns={1}
-                  fields={[
-                    {
-                      id: 'shootingCompareWardSave',
-                      label: 'Ward Save (X+)',
-                      value: wardSave,
-                      min: '0',
-                      max: '7',
-                      placeholder: 'Leave empty if none',
-                      onChange: onWardSaveChange,
-                    },
-                  ]}
-                />
-                <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
-              </div>
-            </div>
-          </SectionBlock>
+            </SectionBlock>
           </div>
           <ActionBar>
             <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
@@ -762,81 +762,81 @@ export default function ShootingCompareRange({
         <Card className="px-4 py-5 sm:px-6 sm:py-6">
           <CardHeader title="Step 2: Compare with" subtitle="Choose what to vary and override values" />
           <div className="space-y-6">
-          {compareItems.map((item) => (
-            <div key={item.id} className="border-2 border-zinc-900 px-4 py-4">
-              <div className="flex items-center justify-between gap-2">
-                <InputField
-                  id={`${item.id}-label`}
-                  label="Label"
-                  value={item.label}
-                  type="text"
-                  onChange={(value) => updateCompare(item.id, { label: value })}
-                />
-                <Button size="sm" onClick={() => setCompareItems((list) => list.filter((entry) => entry.id !== item.id))}>
-                  Remove
-                </Button>
-              </div>
-              <SectionBlock title="Step 2A: Field to compare" contentClassName="mt-3">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Value to vary</label>
-                <select
-                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                  value={item.singleField}
-                  onChange={(event) => updateCompare(item.id, { singleField: event.target.value as keyof RangeFieldValues })}
-                >
-                  {Object.entries(fieldLabels).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
+            {compareItems.map((item) => (
+              <div key={item.id} className="border-2 border-zinc-900 px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <InputField
+                    id={`${item.id}-label`}
+                    label="Label"
+                    value={item.label}
+                    type="text"
+                    onChange={(value) => updateCompare(item.id, { label: value })}
+                  />
+                  <Button size="sm" onClick={() => setCompareItems((list) => list.filter((entry) => entry.id !== item.id))}>
+                    Remove
+                  </Button>
+                </div>
+                <SectionBlock title="Step 2A: Field to compare" contentClassName="mt-3">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Value to vary</label>
                   <select
                     className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                    value={item.compareMode}
-                    onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
+                    value={item.singleField}
+                    onChange={(event) => updateCompare(item.id, { singleField: event.target.value as keyof RangeFieldValues })}
                   >
-                    <option value="single">Compare single value</option>
-                    <option value="range">Compare</option>
+                    {Object.entries(fieldLabels).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
-                </div>
-                {item.compareMode === 'single' ? (
-                  <>
+                  <div className="mt-3">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
+                    <select
+                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
+                      value={item.compareMode}
+                      onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
+                    >
+                      <option value="single">Compare single value</option>
+                      <option value="range">Compare</option>
+                    </select>
+                  </div>
+                  {item.compareMode === 'single' ? (
+                    <>
+                      <InputField
+                        id={`${item.id}-compare-value`}
+                        label="Compare values (comma separated)"
+                        value={item.compareValues}
+                        type="text"
+                        placeholder="e.g. 3,4,5"
+                        onChange={(value) => updateCompare(item.id, { compareValues: value })}
+                      />
+                      {!item.compareValues.trim() ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                          Insert at least one value to compare.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
                     <InputField
-                      id={`${item.id}-compare-value`}
-                      label="Compare values (comma separated)"
-                      value={item.compareValues}
+                      id={`${item.id}-compare-range`}
+                      label="Range values"
+                      value={item.compareRangeValues}
                       type="text"
-                      placeholder="e.g. 3,4,5"
-                      onChange={(value) => updateCompare(item.id, { compareValues: value })}
+                      placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
+                      onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
                     />
-                    {!item.compareValues.trim() ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                        Insert at least one value to compare.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <InputField
-                    id={`${item.id}-compare-range`}
-                    label="Range values"
-                    value={item.compareRangeValues}
-                    type="text"
-                    placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
-                    onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
-                  />
-                )}
-                {item.compareMode === 'range'
-                  && item.compareRangeValues.trim()
-                  && parseRangeValues(item.compareRangeValues).length === 0 ? (
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                    Invalid range format. Use 2-4 or 2,3,4.
-                  </p>
-                ) : null}
-              </SectionBlock>
+                  )}
+                  {item.compareMode === 'range'
+                    && item.compareRangeValues.trim()
+                    && parseRangeValues(item.compareRangeValues).length === 0 ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                      Invalid range format. Use 2-4 or 2,3,4.
+                    </p>
+                  ) : null}
+                </SectionBlock>
 
-            </div>
-          ))}
+              </div>
+            ))}
           </div>
           <ActionBar>
             <div className="flex flex-wrap gap-3">

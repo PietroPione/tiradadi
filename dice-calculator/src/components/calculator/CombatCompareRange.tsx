@@ -460,347 +460,349 @@ export default function CombatCompareRange({
   const currentBaseResult = computeFinalDamage(baseInputs);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <Card className="px-4 py-5 sm:px-6 sm:py-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <Button size="sm" onClick={onBack}>
-            {backLabel}
-          </Button>
-          {rightSlot ? rightSlot : null}
-        </div>
-        <CardHeader title="Step 1: Combat base values" subtitle="Set your baseline for comparison" />
-        <div className="mt-4 space-y-5">
-          <InputField
-            id="diceCount"
-            label="Dice Count"
-            value={diceCount}
-            min="1"
-            onChange={onDiceCountChange}
-          />
-          <SectionBlock title="To hit" contentClassName="mt-3">
-            <StatGrid
-              fields={[
-                {
-                  id: 'hitValue',
-                  label: 'To Hit (X+)',
-                  value: hitValue,
-                  min: '1',
-                  max: '7',
-                  onChange: onHitValueChange,
-                },
-              ]}
-              columns={1}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button size="sm" onClick={onBack}>
+          {backLabel}
+        </Button>
+        {rightSlot ? rightSlot : null}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 1: Combat base values" subtitle="Set your baseline for comparison" />
+          <div className="mt-4 space-y-5">
+            <InputField
+              id="diceCount"
+              label="Dice Count"
+              value={diceCount}
+              min="1"
+              onChange={onDiceCountChange}
             />
-            <OptionGroup layout="stack" className="mt-3">
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={poisonedAttack}
-                  onChange={(e) => onPoisonedAttackChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Poisoned Attack
-              </label>
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={predatoryFighter}
-                  onChange={(e) => onPredatoryFighterChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Predatory fighter
-              </label>
-              {predatoryFighter ? (
-                <InputField
-                  id="predatoryFighterCount"
-                  label="Predatory fighter count"
-                  value={predatoryFighterCount}
-                  min="0"
-                  onChange={onPredatoryFighterCountChange}
-                />
-              ) : null}
-            </OptionGroup>
-            <div className="mt-3">
-              <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
-            </div>
-          </SectionBlock>
-          <SectionBlock title="To wound" contentClassName="mt-3">
-            <StatGrid
-              fields={[
-                {
-                  id: 'hitStrength',
-                  label: 'Hit Strength',
-                  value: hitStrength,
-                  min: '1',
-                  max: '10',
-                  onChange: onHitStrengthChange,
-                },
-                {
-                  id: 'woundValue',
-                  label: 'To Wound (X+)',
-                  value: woundValue,
-                  min: '1',
-                  max: '7',
-                  onChange: onWoundValueChange,
-                },
-              ]}
-            />
-            <OptionGroup layout="stack" className="mt-3">
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={multipleWoundsEnabled}
-                  onChange={(e) => onMultipleWoundsChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Multiple wounds
-              </label>
-              {multipleWoundsEnabled ? (
-                <InputField
-                  id="multipleWoundsValue"
-                  label="Multiple wounds value"
-                  value={multipleWoundsValue}
-                  type="text"
-                  pattern="^(?:[dD]\\d+|\\d+)$"
-                  title="Use a number or dX (e.g. 2 or d6)"
-                  placeholder="Value or dX (e.g. 2 or d6)"
-                  onChange={onMultipleWoundsValueChange}
-                />
-              ) : null}
-            </OptionGroup>
-            <div className="mt-3">
-              <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
-            </div>
-          </SectionBlock>
-          <SectionBlock title="Savings" contentClassName="mt-3">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-              <div className="space-y-3">
-                <StatGrid
-                  columns={1}
-                  fields={[
-                    {
-                      id: 'armorSave',
-                      label: 'Armor Save (X+)',
-                      value: armorSave,
-                      min: '1',
-                      max: '7',
-                      onChange: onArmorSaveChange,
-                    },
-                  ]}
-                />
-                <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+            <SectionBlock title="To hit" contentClassName="mt-3">
+              <StatGrid
+                fields={[
+                  {
+                    id: 'hitValue',
+                    label: 'To Hit (X+)',
+                    value: hitValue,
+                    min: '1',
+                    max: '7',
+                    onChange: onHitValueChange,
+                  },
+                ]}
+                columns={1}
+              />
+              <OptionGroup layout="stack" className="mt-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={poisonedAttack}
+                    onChange={(e) => onPoisonedAttackChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Poisoned Attack
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={predatoryFighter}
+                    onChange={(e) => onPredatoryFighterChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Predatory fighter
+                </label>
+                {predatoryFighter ? (
+                  <InputField
+                    id="predatoryFighterCount"
+                    label="Predatory fighter count"
+                    value={predatoryFighterCount}
+                    min="0"
+                    onChange={onPredatoryFighterCountChange}
+                  />
+                ) : null}
+              </OptionGroup>
+              <div className="mt-3">
+                <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
               </div>
-              <div className="space-y-3">
-                <StatGrid
-                  columns={1}
-                  fields={[
-                    {
-                      id: 'wardSave',
-                      label: 'Ward Save (X+)',
-                      value: wardSave,
-                      min: '0',
-                      max: '7',
-                      placeholder: 'Leave empty if none',
-                      onChange: onWardSaveChange,
-                    },
-                  ]}
-                />
-                <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+            </SectionBlock>
+            <SectionBlock title="To wound" contentClassName="mt-3">
+              <StatGrid
+                fields={[
+                  {
+                    id: 'hitStrength',
+                    label: 'Hit Strength',
+                    value: hitStrength,
+                    min: '1',
+                    max: '10',
+                    onChange: onHitStrengthChange,
+                  },
+                  {
+                    id: 'woundValue',
+                    label: 'To Wound (X+)',
+                    value: woundValue,
+                    min: '1',
+                    max: '7',
+                    onChange: onWoundValueChange,
+                  },
+                ]}
+              />
+              <OptionGroup layout="stack" className="mt-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={multipleWoundsEnabled}
+                    onChange={(e) => onMultipleWoundsChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Multiple wounds
+                </label>
+                {multipleWoundsEnabled ? (
+                  <InputField
+                    id="multipleWoundsValue"
+                    label="Multiple wounds value"
+                    value={multipleWoundsValue}
+                    type="text"
+                    pattern="^(?:[dD]\\d+|\\d+)$"
+                    title="Use a number or dX (e.g. 2 or d6)"
+                    placeholder="Value or dX (e.g. 2 or d6)"
+                    onChange={onMultipleWoundsValueChange}
+                  />
+                ) : null}
+              </OptionGroup>
+              <div className="mt-3">
+                <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
               </div>
-            </div>
-          </SectionBlock>
-        </div>
-        <ActionBar>
-          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
-            Base final damage: <span className="font-mono text-zinc-900">{currentBaseResult.toFixed(2)}</span>
+            </SectionBlock>
+            <SectionBlock title="Savings" contentClassName="mt-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'armorSave',
+                        label: 'Armor Save (X+)',
+                        value: armorSave,
+                        min: '1',
+                        max: '7',
+                        onChange: onArmorSaveChange,
+                      },
+                    ]}
+                  />
+                  <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+                </div>
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'wardSave',
+                        label: 'Ward Save (X+)',
+                        value: wardSave,
+                        min: '0',
+                        max: '7',
+                        placeholder: 'Leave empty if none',
+                        onChange: onWardSaveChange,
+                      },
+                    ]}
+                  />
+                  <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+                </div>
+              </div>
+            </SectionBlock>
           </div>
-        </ActionBar>
-      </Card>
+          <ActionBar>
+            <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
+              Base final damage: <span className="font-mono text-zinc-900">{currentBaseResult.toFixed(2)}</span>
+            </div>
+          </ActionBar>
+        </Card>
 
-      <Card className="px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 2: Compare with" subtitle="Choose what to vary and override values" />
-        <div className="space-y-6">
-          {compareItems.map((item) => (
-            <div key={item.id} className="border-2 border-zinc-900 px-4 py-4">
-              <div className="flex items-center justify-between gap-2">
-                <InputField
-                  id={`${item.id}-label`}
-                  label="Label"
-                  value={item.label}
-                  type="text"
-                  onChange={(value) => updateCompare(item.id, { label: value })}
-                />
-                <Button size="sm" onClick={() => setCompareItems((list) => list.filter((entry) => entry.id !== item.id))}>
-                  Remove
-                </Button>
-              </div>
-              <SectionBlock title="Step 2A: Field to compare" contentClassName="mt-3">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Value to vary</label>
-                <select
-                  className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                  value={item.singleField}
-                  onChange={(event) => updateCompare(item.id, { singleField: event.target.value as keyof RangeFieldValues })}
-                >
-                  {Object.entries(fieldLabels).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
+        <Card className="px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 2: Compare with" subtitle="Choose what to vary and override values" />
+          <div className="space-y-6">
+            {compareItems.map((item) => (
+              <div key={item.id} className="border-2 border-zinc-900 px-4 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <InputField
+                    id={`${item.id}-label`}
+                    label="Label"
+                    value={item.label}
+                    type="text"
+                    onChange={(value) => updateCompare(item.id, { label: value })}
+                  />
+                  <Button size="sm" onClick={() => setCompareItems((list) => list.filter((entry) => entry.id !== item.id))}>
+                    Remove
+                  </Button>
+                </div>
+                <SectionBlock title="Step 2A: Field to compare" contentClassName="mt-3">
+                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Value to vary</label>
                   <select
                     className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                    value={item.compareMode}
-                    onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
+                    value={item.singleField}
+                    onChange={(event) => updateCompare(item.id, { singleField: event.target.value as keyof RangeFieldValues })}
                   >
-                    <option value="single">Compare single value</option>
-                    <option value="range">Compare</option>
+                    {Object.entries(fieldLabels).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
-                </div>
-                {item.compareMode === 'single' ? (
-                  <>
-                    <InputField
-                      id={`${item.id}-compare-value`}
-                      label="Compare values (comma separated)"
-                      value={item.compareValues}
-                      type="text"
-                      placeholder="e.g. 3,4,5"
-                      onChange={(value) => updateCompare(item.id, { compareValues: value })}
-                    />
-                    {!item.compareValues.trim() ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                        Insert at least one value to compare.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <InputField
-                      id={`${item.id}-compare-range`}
-                      label="Range values"
-                      value={item.compareRangeValues}
-                      type="text"
-                      placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
-                      onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
-                    />
-                    {item.compareRangeValues.trim()
-                      && parseRangeValues(item.compareRangeValues).length === 0 ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                        Invalid range format. Use 2-4 or 2,3,4.
-                      </p>
-                    ) : null}
-                  </>
-                )}
-              </SectionBlock>
-
-            </div>
-          ))}
-        </div>
-        <ActionBar>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              size="sm"
-              onClick={() => setCompareItems((items) => items.concat(buildCompareConfig(baseInputs, items.length)))}
-            >
-              Add compare
-            </Button>
-            <Button size="sm" onClick={handleGenerate} disabled={hasInvalidCompareValues}>
-              Generate results
-            </Button>
-          </div>
-          {hasInvalidCompareValues ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-              Add compare values before generating.
-            </p>
-          ) : null}
-        </ActionBar>
-      </Card>
-
-      <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 3: Results" subtitle="Final damage distribution" />
-        {chartSeries.length ? (
-          <>
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              Series: {chartSeries.map((series) => series.name).join(' | ')}
-            </div>
-            <LineChart
-              series={chartSeries.map((item, index) => ({
-                ...item,
-                color: item.color || ['#111827', '#2563eb', '#16a34a', '#db2777', '#f97316', '#7c3aed'][index % 6],
-              }))}
-              xLabel="Final damage"
-              xUnit="wounds"
-              yLabel="Probability"
-              yUnit="%"
-              footer={(
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  X axis shows total final damage (0 to max).
-                </p>
-              )}
-            />
-          </>
-        ) : (
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
-            Generate charts to see results.
-          </p>
-        )}
-      </Card>
-
-      <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 3: Results table" subtitle="Probability by final damage" />
-        {tableRows.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b-2 border-zinc-900">
-                  <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                    Value
-                  </th>
-                  {chartSeries.map((series) => (
-                    <th
-                      key={series.name}
-                      className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600"
+                  <div className="mt-3">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
+                    <select
+                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
+                      value={item.compareMode}
+                      onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
                     >
-                      {series.name}
+                      <option value="single">Compare single value</option>
+                      <option value="range">Compare</option>
+                    </select>
+                  </div>
+                  {item.compareMode === 'single' ? (
+                    <>
+                      <InputField
+                        id={`${item.id}-compare-value`}
+                        label="Compare values (comma separated)"
+                        value={item.compareValues}
+                        type="text"
+                        placeholder="e.g. 3,4,5"
+                        onChange={(value) => updateCompare(item.id, { compareValues: value })}
+                      />
+                      {!item.compareValues.trim() ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                          Insert at least one value to compare.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <InputField
+                        id={`${item.id}-compare-range`}
+                        label="Range values"
+                        value={item.compareRangeValues}
+                        type="text"
+                        placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
+                        onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
+                      />
+                      {item.compareRangeValues.trim()
+                        && parseRangeValues(item.compareRangeValues).length === 0 ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                          Invalid range format. Use 2-4 or 2,3,4.
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </SectionBlock>
+
+              </div>
+            ))}
+          </div>
+          <ActionBar>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                size="sm"
+                onClick={() => setCompareItems((items) => items.concat(buildCompareConfig(baseInputs, items.length)))}
+              >
+                Add compare
+              </Button>
+              <Button size="sm" onClick={handleGenerate} disabled={hasInvalidCompareValues}>
+                Generate results
+              </Button>
+            </div>
+            {hasInvalidCompareValues ? (
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                Add compare values before generating.
+              </p>
+            ) : null}
+          </ActionBar>
+        </Card>
+
+        <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 3: Results" subtitle="Final damage distribution" />
+          {chartSeries.length ? (
+            <>
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                Series: {chartSeries.map((series) => series.name).join(' | ')}
+              </div>
+              <LineChart
+                series={chartSeries.map((item, index) => ({
+                  ...item,
+                  color: item.color || ['#111827', '#2563eb', '#16a34a', '#db2777', '#f97316', '#7c3aed'][index % 6],
+                }))}
+                xLabel="Final damage"
+                xUnit="wounds"
+                yLabel="Probability"
+                yUnit="%"
+                footer={(
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    X axis shows total final damage (0 to max).
+                  </p>
+                )}
+              />
+            </>
+          ) : (
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
+              Generate charts to see results.
+            </p>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 3: Results table" subtitle="Probability by final damage" />
+          {tableRows.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-zinc-900">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      Value
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((row) => (
-                  <tr key={row.x} className="border-b border-zinc-200">
-                    <td className="px-3 py-2 font-mono text-zinc-900">{row.x}</td>
                     {chartSeries.map((series) => (
-                      <td key={`${series.name}-${row.x}`} className="px-3 py-2 text-zinc-700">
-                        {((row.values[series.name] ?? 0) * 100).toFixed(2)}%
-                      </td>
+                      <th
+                        key={series.name}
+                        className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600"
+                      >
+                        {series.name}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
-            Generate charts to see results.
-          </p>
-        )}
-        {generatedBaseResult !== null ? (
-          <div className="mt-3 space-y-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-            <div>Base final damage (expected): {generatedBaseResult.toFixed(2)}</div>
-            {expectedSeries.length ? (
-              <div>
-                Compare expected:{' '}
-                {expectedSeries
-                  .filter((series) => series.name !== 'Base')
-                  .map((series) => `${series.name}=${(series.points[0]?.y ?? 0).toFixed(2)}`)
-                  .join(' | ')}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </Card>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.x} className="border-b border-zinc-200">
+                      <td className="px-3 py-2 font-mono text-zinc-900">{row.x}</td>
+                      {chartSeries.map((series) => (
+                        <td key={`${series.name}-${row.x}`} className="px-3 py-2 text-zinc-700">
+                          {((row.values[series.name] ?? 0) * 100).toFixed(2)}%
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
+              Generate charts to see results.
+            </p>
+          )}
+          {generatedBaseResult !== null ? (
+            <div className="mt-3 space-y-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+              <div>Base final damage (expected): {generatedBaseResult.toFixed(2)}</div>
+              {expectedSeries.length ? (
+                <div>
+                  Compare expected:{' '}
+                  {expectedSeries
+                    .filter((series) => series.name !== 'Base')
+                    .map((series) => `${series.name}=${(series.points[0]?.y ?? 0).toFixed(2)}`)
+                    .join(' | ')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      </div>
     </div>
   );
 }
