@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Card from '@/components/ui/Card';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
@@ -57,6 +57,9 @@ type RangeFieldValues = {
 };
 
 type CombatCompareRangeProps = CombatInputs & {
+  onBack: () => void;
+  backLabel?: string;
+  rightSlot?: ReactNode;
   onDiceCountChange: (value: string) => void;
   onHitValueChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
@@ -131,6 +134,9 @@ export default function CombatCompareRange({
   rerollWoundConfig,
   rerollArmorConfig,
   rerollWardConfig,
+  onBack,
+  backLabel = 'Back',
+  rightSlot,
   onDiceCountChange,
   onHitValueChange,
   onPoisonedAttackChange,
@@ -456,6 +462,12 @@ export default function CombatCompareRange({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <Card className="px-4 py-5 sm:px-6 sm:py-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <Button size="sm" onClick={onBack}>
+            {backLabel}
+          </Button>
+          {rightSlot ? rightSlot : null}
+        </div>
         <CardHeader title="Step 1: Combat base values" subtitle="Set your baseline for comparison" />
         <div className="mt-4 space-y-5">
           <InputField

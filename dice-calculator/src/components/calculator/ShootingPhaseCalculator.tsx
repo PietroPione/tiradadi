@@ -2,14 +2,12 @@ import Card from '@/components/ui/Card';
 import ActionBar from '@/components/ui/ActionBar';
 import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
-import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ProbabilityResultsCard, { type ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
 import StatGrid from '@/components/ui/StatGrid';
-import ProbabilityModeSelector from '@/components/calculator/ProbabilityModeSelector';
 import ShootingCompareRange from '@/components/calculator/ShootingCompareRange';
 import OptionGroup from '@/components/ui/OptionGroup';
 
@@ -26,7 +24,7 @@ const formatRerollLabel = (config: RerollConfig) => {
 
 type ShootingPhaseCalculatorProps = {
   diceCount: string;
-  mode: 'probability' | 'throw';
+  mode: 'probability' | 'throw' | null;
   probabilityMode: 'single' | 'range' | null;
   ballisticSkill: string;
   poisonedAttack: boolean;
@@ -67,7 +65,6 @@ type ShootingPhaseCalculatorProps = {
     multipleWoundsRolls: number[];
   };
   onDiceCountChange: (value: string) => void;
-  onModeChange: (mode: 'probability' | 'throw') => void;
   onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
   onBallisticSkillChange: (value: string) => void;
   onPoisonedAttackChange: (value: boolean) => void;
@@ -116,7 +113,6 @@ export default function ShootingPhaseCalculator({
   rerollWardConfig,
   debug,
   onDiceCountChange,
-  onModeChange,
   onProbabilityModeChange,
   onBallisticSkillChange,
   onPoisonedAttackChange,
@@ -138,17 +134,12 @@ export default function ShootingPhaseCalculator({
   onRerollWardChange,
 }: ShootingPhaseCalculatorProps) {
   const isProbability = mode === 'probability';
-  if (isProbability && probabilityMode !== 'single') {
-    return probabilityMode === null ? (
-      <ProbabilityModeSelector
-        title="Shooting phase"
-        subtitle="Choose probability mode"
-        onBack={onBack}
-        backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
-        onSelect={onProbabilityModeChange}
-      />
-    ) : (
+  const activeProbabilityMode = probabilityMode ?? 'single';
+  const toggleLabel = activeProbabilityMode === 'range' ? 'Single value' : 'Comparation';
+  const toggleMode = () => onProbabilityModeChange(activeProbabilityMode === 'range' ? 'single' : 'range');
+
+  if (isProbability && activeProbabilityMode === 'range') {
+    return (
       <ShootingCompareRange
         diceCount={diceCount}
         ballisticSkill={ballisticSkill}
@@ -167,7 +158,11 @@ export default function ShootingPhaseCalculator({
         rerollWardConfig={rerollWardConfig}
         onBack={onBack}
         backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        rightSlot={(
+          <Button size="sm" onClick={toggleMode}>
+            {toggleLabel}
+          </Button>
+        )}
         onDiceCountChange={onDiceCountChange}
         onBallisticSkillChange={onBallisticSkillChange}
         onModifierChange={onModifierChange}
@@ -245,7 +240,11 @@ export default function ShootingPhaseCalculator({
         title="Shooting phase"
         onBack={onBack}
         backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        rightSlot={isProbability ? (
+          <Button size="sm" onClick={toggleMode}>
+            {toggleLabel}
+          </Button>
+        ) : null}
       />
 
       <div className="mt-4 space-y-5">

@@ -253,16 +253,20 @@ export default function GeneralCompareRange({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <Card className="px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader
-          title="Step 1: General throw base values"
-          subtitle="Set your baseline for comparison"
-          onBack={onBack}
-          backLabel={backLabel}
-          rightSlot={rightSlot}
-        />
-        <div className="mt-4 space-y-5">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button size="sm" onClick={onBack}>
+          {backLabel}
+        </Button>
+        {rightSlot ? rightSlot : null}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader
+            title="Step 1: General throw base values"
+            subtitle="Set your baseline for comparison"
+          />
+          <div className="mt-4 space-y-5">
           <InputField
             id="generalCompareDiceCount"
             label="Number of dice to throw"
@@ -301,18 +305,18 @@ export default function GeneralCompareRange({
           <SectionBlock title="Re-rolls" contentClassName="mt-3">
             <ReRollOptions config={rerollConfig} onChange={onRerollChange} compact />
           </SectionBlock>
-        </div>
-        <ActionBar>
-          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
-            Base average {objective === 'target' ? 'successes' : 'total'}:{' '}
-            <span className="font-mono text-zinc-900">{baseResult.toFixed(2)}</span>
           </div>
-        </ActionBar>
-      </Card>
+          <ActionBar>
+            <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
+              Base average {objective === 'target' ? 'successes' : 'total'}:{' '}
+              <span className="font-mono text-zinc-900">{baseResult.toFixed(2)}</span>
+            </div>
+          </ActionBar>
+        </Card>
 
-      <Card className="px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 2: Compare with" subtitle="Choose what to vary and override values" />
-        <div className="space-y-6">
+        <Card className="px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 2: Compare with" subtitle="Choose what to vary and override values" />
+          <div className="space-y-6">
           {compareItems.map((item) => (
             <div key={item.id} className="border-2 border-zinc-900 px-4 py-4">
               <div className="flex items-center justify-between gap-2">
@@ -388,111 +392,112 @@ export default function GeneralCompareRange({
 
             </div>
           ))}
-        </div>
-        <ActionBar>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              size="sm"
-              onClick={() => setCompareItems((items) => items.concat(buildCompareConfig(baseInputs, items.length)))}
-            >
-              Add compare
-            </Button>
-            <Button size="sm" onClick={handleGenerate} disabled={hasInvalidCompareValues}>
-              Generate results
-            </Button>
           </div>
-          {hasInvalidCompareValues ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-              Add compare values before generating.
-            </p>
-          ) : null}
-        </ActionBar>
-      </Card>
-
-      <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 3: Results" subtitle="Result distribution" />
-        {chartSeries.length ? (
-          <>
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              Series: {chartSeries.map((series) => series.name).join(' | ')}
+          <ActionBar>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                size="sm"
+                onClick={() => setCompareItems((items) => items.concat(buildCompareConfig(baseInputs, items.length)))}
+              >
+                Add compare
+              </Button>
+              <Button size="sm" onClick={handleGenerate} disabled={hasInvalidCompareValues}>
+                Generate results
+              </Button>
             </div>
-            <LineChart
-              series={chartSeries.map((item, index) => ({
-                ...item,
-                color: item.color || ['#111827', '#2563eb', '#16a34a', '#db2777', '#f97316', '#7c3aed'][index % 6],
-              }))}
-              xLabel="Result"
-              xUnit={objective === 'target' ? 'successes' : 'total'}
-              yLabel="Probability"
-              yUnit="%"
-              footer={(
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  X axis shows possible results (0 to max).
-                </p>
-              )}
-            />
-          </>
-        ) : (
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
-            Generate charts to see results.
-          </p>
-        )}
-      </Card>
+            {hasInvalidCompareValues ? (
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                Add compare values before generating.
+              </p>
+            ) : null}
+          </ActionBar>
+        </Card>
 
-      <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
-        <CardHeader title="Step 3: Results table" subtitle="Probability by result" />
-        {tableRows.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b-2 border-zinc-900">
-                  <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                    Value
-                  </th>
-                  {chartSeries.map((series) => (
-                    <th
-                      key={series.name}
-                      className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600"
-                    >
-                      {series.name}
+        <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 3: Results" subtitle="Result distribution" />
+          {chartSeries.length ? (
+            <>
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                Series: {chartSeries.map((series) => series.name).join(' | ')}
+              </div>
+              <LineChart
+                series={chartSeries.map((item, index) => ({
+                  ...item,
+                  color: item.color || ['#111827', '#2563eb', '#16a34a', '#db2777', '#f97316', '#7c3aed'][index % 6],
+                }))}
+                xLabel="Result"
+                xUnit={objective === 'target' ? 'successes' : 'total'}
+                yLabel="Probability"
+                yUnit="%"
+                footer={(
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    X axis shows possible results (0 to max).
+                  </p>
+                )}
+              />
+            </>
+          ) : (
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
+              Generate charts to see results.
+            </p>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-2 px-4 py-5 sm:px-6 sm:py-6">
+          <CardHeader title="Step 3: Results table" subtitle="Probability by result" />
+          {tableRows.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-zinc-900">
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      Value
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((row) => (
-                  <tr key={row.x} className="border-b border-zinc-200">
-                    <td className="px-3 py-2 font-mono text-zinc-900">{row.x}</td>
                     {chartSeries.map((series) => (
-                      <td key={`${series.name}-${row.x}`} className="px-3 py-2 text-zinc-700">
-                        {((row.values[series.name] ?? 0) * 100).toFixed(2)}%
-                      </td>
+                      <th
+                        key={series.name}
+                        className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600"
+                      >
+                        {series.name}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
-            Generate charts to see results.
-          </p>
-        )}
-        {generatedBaseResult !== null ? (
-          <div className="mt-3 space-y-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-            <div>Base expected result: {generatedBaseResult.toFixed(2)}</div>
-            {expectedSeries.length ? (
-              <div>
-                Compare expected:{' '}
-                {expectedSeries
-                  .filter((series) => series.name !== 'Base')
-                  .map((series) => `${series.name}=${(series.points[0]?.y ?? 0).toFixed(2)}`)
-                  .join(' | ')}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </Card>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.x} className="border-b border-zinc-200">
+                      <td className="px-3 py-2 font-mono text-zinc-900">{row.x}</td>
+                      {chartSeries.map((series) => (
+                        <td key={`${series.name}-${row.x}`} className="px-3 py-2 text-zinc-700">
+                          {((row.values[series.name] ?? 0) * 100).toFixed(2)}%
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">
+              Generate charts to see results.
+            </p>
+          )}
+          {generatedBaseResult !== null ? (
+            <div className="mt-3 space-y-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+              <div>Base expected result: {generatedBaseResult.toFixed(2)}</div>
+              {expectedSeries.length ? (
+                <div>
+                  Compare expected:{' '}
+                  {expectedSeries
+                    .filter((series) => series.name !== 'Base')
+                    .map((series) => `${series.name}=${(series.points[0]?.y ?? 0).toFixed(2)}`)
+                    .join(' | ')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      </div>
     </div>
   );
 }

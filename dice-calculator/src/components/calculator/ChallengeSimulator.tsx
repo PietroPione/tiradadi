@@ -6,7 +6,6 @@ import InputField from '@/components/ui/InputField';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
 import StatGrid from '@/components/ui/StatGrid';
-import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 import {
@@ -188,6 +187,7 @@ type RoundLog = {
 };
 
 type ChallengeSimulatorProps = {
+  mode: 'probability' | 'throw';
   onBack: () => void;
 };
 
@@ -1239,8 +1239,7 @@ const RoundDetails = ({
   );
 };
 
-export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) {
-  const [mode, setMode] = useState<'probability' | 'throw'>('probability');
+export default function ChallengeSimulator({ mode, onBack }: ChallengeSimulatorProps) {
   const [challengerOne, setChallengerOne] = useState<ChallengerState>(buildDefaultChallenger());
   const [challengerTwo, setChallengerTwo] = useState<ChallengerState>(buildDefaultChallenger());
   const [rounds, setRounds] = useState<RoundLog[]>([]);
@@ -1494,7 +1493,7 @@ export default function ChallengeSimulator({ onBack }: ChallengeSimulatorProps) 
         title="Challenge simulator"
         onBack={onBack}
         backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={setMode} />}
+        rightSlot={null}
       />
 
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">

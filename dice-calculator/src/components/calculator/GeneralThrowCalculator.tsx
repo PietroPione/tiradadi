@@ -2,13 +2,11 @@ import Card from '@/components/ui/Card';
 import ActionBar from '@/components/ui/ActionBar';
 import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
-import ModeSwitch from '@/components/calculator/ModeSwitch';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import DebugPanel from '@/components/ui/DebugPanel';
 import CardHeader from '@/components/ui/CardHeader';
 import SectionBlock from '@/components/ui/SectionBlock';
 import ToggleButton from '@/components/ui/ToggleButton';
-import ProbabilityModeSelector from '@/components/calculator/ProbabilityModeSelector';
 import GeneralCompareRange from '@/components/calculator/GeneralCompareRange';
 
 const formatRerollLabel = (config: RerollConfig) => {
@@ -38,7 +36,7 @@ type GeneralThrowCalculatorProps = {
   diceCount: string;
   objective: 'target' | 'total';
   targetValue: string;
-  mode: 'probability' | 'throw';
+  mode: 'probability' | 'throw' | null;
   probabilityMode: 'single' | 'range' | null;
   errorMessage: string;
   averageResults: GeneralAverageResults;
@@ -55,7 +53,6 @@ type GeneralThrowCalculatorProps = {
   onDiceCountChange: (value: string) => void;
   onObjectiveChange: (objective: 'target' | 'total') => void;
   onTargetValueChange: (value: string) => void;
-  onModeChange: (mode: 'probability' | 'throw') => void;
   onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
   onAverageCalculate: () => void;
   onThrowCalculate: () => void;
@@ -79,25 +76,18 @@ export default function GeneralThrowCalculator({
   onDiceCountChange,
   onObjectiveChange,
   onTargetValueChange,
-  onModeChange,
   onProbabilityModeChange,
   onAverageCalculate,
   onThrowCalculate,
   onRerollChange,
 }: GeneralThrowCalculatorProps) {
   const isProbability = mode === 'probability';
+  const activeProbabilityMode = probabilityMode ?? 'single';
+  const toggleLabel = activeProbabilityMode === 'range' ? 'Single value' : 'Comparation';
+  const toggleMode = () => onProbabilityModeChange(activeProbabilityMode === 'range' ? 'single' : 'range');
 
-  if (isProbability && probabilityMode !== 'single') {
-    return probabilityMode === null ? (
-      <ProbabilityModeSelector
-        title="General throw"
-        subtitle="Choose probability mode"
-        onBack={onBack}
-        backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
-        onSelect={onProbabilityModeChange}
-      />
-    ) : (
+  if (isProbability && activeProbabilityMode === 'range') {
+    return (
       <GeneralCompareRange
         diceCount={diceCount}
         objective={objective}
@@ -105,7 +95,11 @@ export default function GeneralThrowCalculator({
         rerollConfig={rerollConfig}
         onBack={onBack}
         backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        rightSlot={(
+          <Button size="sm" onClick={toggleMode}>
+            {toggleLabel}
+          </Button>
+        )}
         onDiceCountChange={onDiceCountChange}
         onObjectiveChange={onObjectiveChange}
         onTargetValueChange={onTargetValueChange}
@@ -120,7 +114,11 @@ export default function GeneralThrowCalculator({
         title="General throw"
         onBack={onBack}
         backLabel="Back to phases"
-        rightSlot={<ModeSwitch mode={mode} onModeChange={onModeChange} />}
+        rightSlot={isProbability ? (
+          <Button size="sm" onClick={toggleMode}>
+            {toggleLabel}
+          </Button>
+        ) : null}
       />
       <div className="mt-4 space-y-5">
         <InputField

@@ -28,7 +28,7 @@ export default function PhaseSelector({
           onClick={onBack}
           className="border-2 border-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
         >
-          Change system
+          Change mode
         </button>
       </div>
       <div className="mt-4 grid gap-3">
