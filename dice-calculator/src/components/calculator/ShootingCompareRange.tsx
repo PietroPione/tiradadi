@@ -286,7 +286,7 @@ export default function ShootingCompareRange({
   const [generatedBaseResult, setGeneratedBaseResult] = useState<number | null>(null);
   const hh2Profile = isHorusHeresy ? getHh2HitProfile(parseNumber(ballisticSkill)) : null;
   const resultNeeded = isHorusHeresy && hh2Profile
-    ? hh2Profile.target
+    ? hh2Profile.baseTarget
     : getShootingResultNeeded(parseNumber(ballisticSkill), modifiers, autoHit);
   const resultDisplay = isHorusHeresy && hh2Profile
     ? {
