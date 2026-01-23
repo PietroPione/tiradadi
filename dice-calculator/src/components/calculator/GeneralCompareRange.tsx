@@ -8,7 +8,7 @@ import ActionBar from '@/components/ui/ActionBar';
 import Button from '@/components/ui/Button';
 import LineChart from '@/components/ui/LineChart';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
-import { getFaceProbabilitiesWithReroll, parseSpecificValues, shouldRerollValue } from '@/lib/roll-utils';
+import { getFaceProbabilitiesWithReroll, parseSpecificValues, shouldRerollValue } from '@/lib/games/wfb8/roll-utils';
 
 type GeneralInputs = {
   diceCount: string;

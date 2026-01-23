@@ -1,6 +1,6 @@
 import Card from '@/components/ui/Card';
 
-type GameSystem = 'wfb8' | 'trech';
+type GameSystem = 'wfb8' | 'trech' | 'hh2';
 
 type SystemSelectorProps = {
   onSelect: (system: GameSystem) => void;
@@ -25,6 +25,13 @@ export default function SystemSelector({ onSelect }: SystemSelectorProps) {
           className="mt-3 w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
         >
           Trench Crusade
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('hh2')}
+          className="mt-3 w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
+        >
+          Horus Heresy (second edition)
         </button>
       </div>
     </Card>

@@ -9,8 +9,8 @@ import Button from '@/components/ui/Button';
 import ActionBar from '@/components/ui/ActionBar';
 import LineChart from '@/components/ui/LineChart';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
-import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/dice-calculator';
-import { parseSpecificValues, shouldRerollValue } from '@/lib/roll-utils';
+import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/games/wfb8/dice-calculator';
+import { parseSpecificValues, shouldRerollValue } from '@/lib/games/wfb8/roll-utils';
 
 const toDiceRerollConfig = (config: RerollConfig): DiceRerollConfig => ({
   enabled: config.enabled,

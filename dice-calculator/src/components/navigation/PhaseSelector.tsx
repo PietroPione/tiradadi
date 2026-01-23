@@ -1,7 +1,7 @@
 import Card from '@/components/ui/Card';
 
 type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'challenge' | 'tc-generic' | 'tc-injury';
-type GameSystem = 'wfb8' | 'trech';
+type GameSystem = 'wfb8' | 'trech' | 'hh2';
 
 type PhaseSelectorProps = {
   systemLabel: string;
@@ -32,7 +32,24 @@ export default function PhaseSelector({
         </button>
       </div>
       <div className="mt-4 grid gap-3">
-        {systemKey === 'wfb8' ? (
+        {systemKey === 'trech' ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onSelect('tc-generic')}
+              className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
+            >
+              Generic roll
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelect('tc-injury')}
+              className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
+            >
+              Injury roll
+            </button>
+          </>
+        ) : (
           <>
             <button
               type="button"
@@ -68,23 +85,6 @@ export default function PhaseSelector({
               className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
             >
               Challenge simulator
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => onSelect('tc-generic')}
-              className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
-            >
-              Generic roll
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelect('tc-injury')}
-              className="w-full border-2 border-zinc-900 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white"
-            >
-              Injury roll
             </button>
           </>
         )}

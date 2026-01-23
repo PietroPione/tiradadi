@@ -15,7 +15,7 @@ import {
   getWoundTarget,
   parseSpecificValues,
   shouldRerollValue,
-} from '@/lib/roll-utils';
+} from '@/lib/games/wfb8/roll-utils';
 
 const MAX_ROUNDS = 50;
 

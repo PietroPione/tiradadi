@@ -10,6 +10,7 @@ import SectionBlock from '@/components/ui/SectionBlock';
 import StatGrid from '@/components/ui/StatGrid';
 import ShootingCompareRange from '@/components/calculator/ShootingCompareRange';
 import OptionGroup from '@/components/ui/OptionGroup';
+import { getHh2HitProfile } from '@/lib/games/hh2/shooting-utils';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -23,6 +24,7 @@ const formatRerollLabel = (config: RerollConfig) => {
 };
 
 type ShootingPhaseCalculatorProps = {
+  systemKey: 'wfb8' | 'trech' | 'hh2';
   diceCount: string;
   mode: 'probability' | 'throw' | null;
   probabilityMode: 'single' | 'range' | null;
@@ -87,6 +89,7 @@ type ShootingPhaseCalculatorProps = {
 };
 
 export default function ShootingPhaseCalculator({
+  systemKey,
   diceCount,
   mode,
   probabilityMode,
@@ -137,10 +140,12 @@ export default function ShootingPhaseCalculator({
   const activeProbabilityMode = probabilityMode ?? 'single';
   const toggleLabel = activeProbabilityMode === 'range' ? 'Single value' : 'Comparation';
   const toggleMode = () => onProbabilityModeChange(activeProbabilityMode === 'range' ? 'single' : 'range');
+  const isHorusHeresy = systemKey === 'hh2';
 
   if (isProbability && activeProbabilityMode === 'range') {
     return (
       <ShootingCompareRange
+        systemKey={systemKey}
         diceCount={diceCount}
         ballisticSkill={ballisticSkill}
         modifiers={modifiers}
@@ -181,6 +186,7 @@ export default function ShootingPhaseCalculator({
       />
     );
   }
+  const hh2Profile = isHorusHeresy ? getHh2HitProfile(Number.parseInt(ballisticSkill, 10)) : null;
   const modifiersLabel = [
     modifiers.longRange ? 'Long range' : null,
     modifiers.movement ? 'Movement' : null,
@@ -231,8 +237,13 @@ export default function ShootingPhaseCalculator({
     };
   };
 
-  const resultDisplay = renderResultNeeded();
-  const isPoisonedActive = poisonedAttack && resultNeeded <= 6 && !autoHit;
+  const resultDisplay = isHorusHeresy && hh2Profile
+    ? {
+      main: Number.isNaN(hh2Profile.baseTarget) ? '-' : `${hh2Profile.baseTarget}+`,
+      sub: hh2Profile.followUpTarget ? `then ${hh2Profile.followUpTarget}+` : null,
+    }
+    : renderResultNeeded();
+  const isPoisonedActive = !isHorusHeresy && poisonedAttack && resultNeeded <= 6 && !autoHit;
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
@@ -255,7 +266,31 @@ export default function ShootingPhaseCalculator({
           min="1"
           onChange={onDiceCountChange}
         />
-        {!autoHit ? (
+        {isHorusHeresy ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
+            <InputField
+              id="ballisticSkill"
+              label="Balistic Skill"
+              value={ballisticSkill}
+              min="1"
+              max="10"
+              onChange={onBallisticSkillChange}
+            />
+            <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                Result needed
+              </p>
+              <p className="mt-1 font-mono text-2xl font-bold text-white">
+                {resultDisplay.main}
+              </p>
+              {resultDisplay.sub ? (
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                  {resultDisplay.sub}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : !autoHit ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
             <InputField
               id="ballisticSkill"
@@ -293,195 +328,203 @@ export default function ShootingPhaseCalculator({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5">
-          <SectionBlock title="Special rules" contentClassName="mt-3">
-            <OptionGroup layout="stack">
+        {!isHorusHeresy ? (
+          <>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-5">
+              <SectionBlock title="Special rules" contentClassName="mt-3">
+                <OptionGroup layout="stack">
+                  {!autoHit ? (
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={poisonedAttack}
+                        onChange={(e) => onPoisonedAttackChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Poisoned Attack
+                    </label>
+                  ) : null}
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={autoHit}
+                      onChange={(e) => onAutoHitChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Auto-hit
+                  </label>
+                </OptionGroup>
+              </SectionBlock>
+
               {!autoHit ? (
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={poisonedAttack}
-                    onChange={(e) => onPoisonedAttackChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Poisoned Attack
-                </label>
+                <SectionBlock title="Cover" contentClassName="mt-3">
+                  <OptionGroup layout="stack">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={modifiers.lightCover}
+                        onChange={(e) => onModifierChange('lightCover', e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Light cover
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={modifiers.hardCover}
+                        onChange={(e) => onModifierChange('hardCover', e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Hard cover
+                    </label>
+                  </OptionGroup>
+                </SectionBlock>
               ) : null}
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={autoHit}
-                  onChange={(e) => onAutoHitChange(e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Auto-hit
-              </label>
-            </OptionGroup>
-          </SectionBlock>
+            </div>
 
-          {!autoHit ? (
-            <SectionBlock title="Cover" contentClassName="mt-3">
-              <OptionGroup layout="stack">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.lightCover}
-                    onChange={(e) => onModifierChange('lightCover', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Light cover
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={modifiers.hardCover}
-                    onChange={(e) => onModifierChange('hardCover', e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Hard cover
-                </label>
-              </OptionGroup>
-            </SectionBlock>
-          ) : null}
-        </div>
-
-        {!autoHit ? (
-          <SectionBlock title="Modifiers" contentClassName="mt-3">
-            <OptionGroup layout="grid2">
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={modifiers.longRange}
-                  onChange={(e) => onModifierChange('longRange', e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Long range
-              </label>
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={modifiers.movement}
-                  onChange={(e) => onModifierChange('movement', e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Movement
-              </label>
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={modifiers.skirmisherTarget}
-                  onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
-                  className="h-4 w-4 border-2 border-zinc-900"
-                />
-                Skirmisher target
-              </label>
-            </OptionGroup>
-          </SectionBlock>
+            {!autoHit ? (
+              <SectionBlock title="Modifiers" contentClassName="mt-3">
+                <OptionGroup layout="grid2">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.longRange}
+                      onChange={(e) => onModifierChange('longRange', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Long range
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.movement}
+                      onChange={(e) => onModifierChange('movement', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Movement
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={modifiers.skirmisherTarget}
+                      onChange={(e) => onModifierChange('skirmisherTarget', e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Skirmisher target
+                  </label>
+                </OptionGroup>
+              </SectionBlock>
+            ) : null}
+          </>
         ) : null}
 
         <SectionBlock title="Re-roll to hit" contentClassName="mt-3">
           <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
         </SectionBlock>
 
-        <SectionBlock title="To wound" contentClassName="mt-3">
-          <StatGrid
-            fields={[
-              {
-                id: 'shootingHitStrength',
-                label: 'Hit Strength',
-                value: hitStrength,
-                min: '1',
-                onChange: onHitStrengthChange,
-              },
-              isProbability
-                ? {
-                  id: 'shootingWoundValue',
-                  label: 'To Wound (X+)',
-                  value: woundValue,
-                  min: '1',
-                  max: '7',
-                  onChange: onWoundValueChange,
-                }
-                : {
-                  id: 'shootingTargetToughness',
-                  label: 'Target Toughness',
-                  value: targetToughness,
-                  min: '1',
-                  onChange: onTargetToughnessChange,
-                },
-            ]}
-          />
-          <div className="mt-3 space-y-3">
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-              <input
-                type="checkbox"
-                checked={multipleWoundsEnabled}
-                onChange={(e) => onMultipleWoundsChange(e.target.checked)}
-                className="h-4 w-4 border-2 border-zinc-900"
-              />
-              Multiple wounds
-            </label>
-            {multipleWoundsEnabled ? (
-              <InputField
-                id="shootingMultipleWoundsValue"
-                label="Multiple wounds value"
-                value={multipleWoundsValue}
-                type="text"
-                pattern="^(?:[dD]\\d+|\\d+)$"
-                title="Use a number or dX (e.g. 2 or d6)"
-                placeholder="Value or dX (e.g. 2 or d6)"
-                onChange={onMultipleWoundsValueChange}
-              />
-            ) : null}
-            {isMultipleWoundsInvalid ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                Use a number (e.g. 2) or dX (e.g. d6).
-              </p>
-            ) : null}
-          </div>
-        </SectionBlock>
-
-        <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
-          <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
-        </SectionBlock>
-
-        <SectionBlock title="Savings" contentClassName="mt-3">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <div className="space-y-3">
+        {!isHorusHeresy ? (
+          <>
+            <SectionBlock title="To wound" contentClassName="mt-3">
               <StatGrid
-                columns={1}
                 fields={[
                   {
-                    id: 'shootingArmorSave',
-                    label: 'Armor Save (X+)',
-                    value: armorSave,
+                    id: 'shootingHitStrength',
+                    label: 'Hit Strength',
+                    value: hitStrength,
                     min: '1',
-                    max: '7',
-                    onChange: onArmorSaveChange,
+                    onChange: onHitStrengthChange,
                   },
+                  isProbability
+                    ? {
+                      id: 'shootingWoundValue',
+                      label: 'To Wound (X+)',
+                      value: woundValue,
+                      min: '1',
+                      max: '7',
+                      onChange: onWoundValueChange,
+                    }
+                    : {
+                      id: 'shootingTargetToughness',
+                      label: 'Target Toughness',
+                      value: targetToughness,
+                      min: '1',
+                      onChange: onTargetToughnessChange,
+                    },
                 ]}
               />
-              <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
-            </div>
-            <div className="space-y-3">
-              <StatGrid
-                columns={1}
-                fields={[
-                  {
-                    id: 'shootingWardSave',
-                    label: 'Ward Save (X+)',
-                    value: wardSave,
-                    min: '0',
-                    max: '7',
-                    placeholder: 'Leave empty if none',
-                    onChange: onWardSaveChange,
-                  },
-                ]}
-              />
-              <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
-            </div>
-          </div>
-        </SectionBlock>
+              <div className="mt-3 space-y-3">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={multipleWoundsEnabled}
+                    onChange={(e) => onMultipleWoundsChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Multiple wounds
+                </label>
+                {multipleWoundsEnabled ? (
+                  <InputField
+                    id="shootingMultipleWoundsValue"
+                    label="Multiple wounds value"
+                    value={multipleWoundsValue}
+                    type="text"
+                    pattern="^(?:[dD]\\d+|\\d+)$"
+                    title="Use a number or dX (e.g. 2 or d6)"
+                    placeholder="Value or dX (e.g. 2 or d6)"
+                    onChange={onMultipleWoundsValueChange}
+                  />
+                ) : null}
+                {isMultipleWoundsInvalid ? (
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                    Use a number (e.g. 2) or dX (e.g. d6).
+                  </p>
+                ) : null}
+              </div>
+            </SectionBlock>
+
+            <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
+              <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
+            </SectionBlock>
+
+            <SectionBlock title="Savings" contentClassName="mt-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'shootingArmorSave',
+                        label: 'Armor Save (X+)',
+                        value: armorSave,
+                        min: '1',
+                        max: '7',
+                        onChange: onArmorSaveChange,
+                      },
+                    ]}
+                  />
+                  <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+                </div>
+                <div className="space-y-3">
+                  <StatGrid
+                    columns={1}
+                    fields={[
+                      {
+                        id: 'shootingWardSave',
+                        label: 'Ward Save (X+)',
+                        value: wardSave,
+                        min: '0',
+                        max: '7',
+                        placeholder: 'Leave empty if none',
+                        onChange: onWardSaveChange,
+                      },
+                    ]}
+                  />
+                  <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+                </div>
+              </div>
+            </SectionBlock>
+          </>
+        ) : null}
       </div>
 
       <ActionBar>
@@ -504,7 +547,13 @@ export default function ShootingPhaseCalculator({
       ) : null}
 
       <DebugPanel
-        lines={[
+        lines={isHorusHeresy ? [
+          { label: 'Dice count', value: diceCount || '-' },
+          { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },
+          { label: 'Re-roll hit', value: formatRerollLabel(rerollHitConfig) },
+          { label: 'Hit initial rolls', value: debug.hitInitialRolls.join(', ') || '-' },
+          { label: 'Hit re-rolls', value: debug.hitRerollRolls.join(', ') || '-' },
+        ] : [
           { label: 'Dice count', value: diceCount || '-' },
           { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },
           { label: 'Modifiers', value: modifiersLabel },

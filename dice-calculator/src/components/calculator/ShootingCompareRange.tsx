@@ -14,7 +14,8 @@ import {
   getShootingSuccessChanceWithReroll,
   parseSpecificValues,
   shouldRerollValue,
-} from '@/lib/roll-utils';
+} from '@/lib/games/wfb8/roll-utils';
+import { getHh2HitProfile, getHh2HitSuccessChance, rollHh2Hit } from '@/lib/games/hh2/shooting-utils';
 
 type ShootingModifiers = {
   longRange: boolean;
@@ -61,6 +62,7 @@ type CompareConfig = ShootingInputs & {
 };
 
 type ShootingCompareRangeProps = ShootingInputs & {
+  systemKey: 'wfb8' | 'trech' | 'hh2';
   onBack: () => void;
   backLabel?: string;
   rightSlot?: ReactNode;
@@ -134,9 +136,19 @@ const getShootingResultNeeded = (ballisticSkillValue: number, modifiers: Shootin
   return baseResult + modifierCount + hardCoverPenalty;
 };
 
-const calculateFinalDamage = (inputs: ShootingInputs) => {
+const calculateFinalDamage = (inputs: ShootingInputs, systemKey: 'wfb8' | 'trech' | 'hh2') => {
   const parsedDice = parseNumber(inputs.diceCount);
   const parsedBallistic = parseNumber(inputs.ballisticSkill);
+  if (systemKey === 'hh2') {
+    if (Number.isNaN(parsedDice) || parsedDice <= 0 || Number.isNaN(parsedBallistic)) {
+      return 0;
+    }
+    const hitChance = getHh2HitSuccessChance(parsedBallistic, inputs.rerollHitConfig);
+    if (Number.isNaN(hitChance)) {
+      return 0;
+    }
+    return parseFloat((parsedDice * hitChance).toFixed(2));
+  }
   const parsedStrength = parseNumber(inputs.hitStrength);
   const parsedWound = parseNumber(inputs.woundValue);
   const parsedArmor = parseNumber(inputs.armorSave);
@@ -209,6 +221,7 @@ const renderResultNeeded = (resultNeeded: number, autoHit: boolean) => {
 };
 
 export default function ShootingCompareRange({
+  systemKey,
   diceCount,
   ballisticSkill,
   modifiers,
@@ -260,6 +273,9 @@ export default function ShootingCompareRange({
     rerollArmorConfig,
     rerollWardConfig,
   };
+  const isHorusHeresy = systemKey === 'hh2';
+  const availableFieldEntries = (Object.entries(fieldLabels) as Array<[keyof RangeFieldValues, string]>)
+    .filter(([key]) => !isHorusHeresy || key === 'diceCount' || key === 'ballisticSkill');
   const [compareItems, setCompareItems] = useState<CompareConfig[]>([buildCompareConfig(baseInputs, 0)]);
   const [chartSeries, setChartSeries] = useState<Array<{ name: string; points: Array<{ x: number; y: number }>; color: string }>>([]);
   const [expectedSeries, setExpectedSeries] = useState<Array<{ name: string; points: Array<{ x: number; y: number }>; color: string }>>([]);
@@ -268,12 +284,23 @@ export default function ShootingCompareRange({
     values: Record<string, number>;
   }>>([]);
   const [generatedBaseResult, setGeneratedBaseResult] = useState<number | null>(null);
-  const resultNeeded = getShootingResultNeeded(parseNumber(ballisticSkill), modifiers, autoHit);
-  const resultDisplay = renderResultNeeded(resultNeeded, autoHit);
+  const hh2Profile = isHorusHeresy ? getHh2HitProfile(parseNumber(ballisticSkill)) : null;
+  const resultNeeded = isHorusHeresy && hh2Profile
+    ? hh2Profile.target
+    : getShootingResultNeeded(parseNumber(ballisticSkill), modifiers, autoHit);
+  const resultDisplay = isHorusHeresy && hh2Profile
+    ? {
+      main: Number.isNaN(hh2Profile.baseTarget) ? '-' : `${hh2Profile.baseTarget}+`,
+      sub: hh2Profile.followUpTarget ? `then ${hh2Profile.followUpTarget}+` : null,
+    }
+    : renderResultNeeded(resultNeeded, autoHit);
 
   const updateCompare = (id: string, patch: Partial<CompareConfig>) => {
     setCompareItems((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
+  const resolveSingleField = (field: keyof RangeFieldValues) => (
+    isHorusHeresy && field !== 'diceCount' && field !== 'ballisticSkill' ? 'ballisticSkill' : field
+  );
 
   const parseCompareValues = (input: string) => {
     return input
@@ -308,11 +335,11 @@ export default function ShootingCompareRange({
       ? parseCompareValues(item.compareValues).length === 0
       : parseRangeValues(item.compareRangeValues).length === 0
   ));
-  const baseResult = calculateFinalDamage(baseInputs);
+  const baseResult = calculateFinalDamage(baseInputs, systemKey);
 
   const buildSeries = () => {
     const rangeSeries = compareItems.flatMap((item) => {
-      const field = item.singleField;
+      const field = resolveSingleField(item.singleField);
       const rangeValues = item.compareMode === 'single'
         ? parseCompareValues(item.compareValues)
         : parseRangeValues(item.compareRangeValues);
@@ -351,8 +378,14 @@ export default function ShootingCompareRange({
         ? (parseMultipleWoundsValue(multipleWoundsValue)?.sides ?? 1)
         : (parseMultipleWoundsValue(multipleWoundsValue)?.value ?? 1))
       : 1;
-    const baseMaxDamage = Math.max(0, parseNumber(diceCount) * baseMaxMultiple);
+    const baseMaxDamage = isHorusHeresy
+      ? Math.max(0, parseNumber(diceCount))
+      : Math.max(0, parseNumber(diceCount) * baseMaxMultiple);
     const seriesData = rangeSeries.map((entry) => {
+      if (isHorusHeresy) {
+        const maxDamage = Math.max(0, parseNumber(entry.inputs.diceCount));
+        return { name: entry.name, inputs: entry.inputs, maxDamage };
+      }
       const compareMultiple = entry.inputs.multipleWoundsEnabled
         ? (parseMultipleWoundsValue(entry.inputs.multipleWoundsValue)?.type === 'dice'
           ? (parseMultipleWoundsValue(entry.inputs.multipleWoundsValue)?.sides ?? 1)
@@ -410,6 +443,21 @@ export default function ShootingCompareRange({
     const simulateShooting = (inputs: ShootingInputs) => {
       const counts = Array.from({ length: overallMax + 1 }, () => 0);
       const diceCountValue = parseNumber(inputs.diceCount);
+      const ballisticValue = parseNumber(inputs.ballisticSkill);
+      if (isHorusHeresy) {
+        for (let i = 0; i < iterations; i += 1) {
+          let hitSuccesses = 0;
+          for (let j = 0; j < diceCountValue; j += 1) {
+            const result = rollHh2Hit(ballisticValue, inputs.rerollHitConfig);
+            if (result.success) {
+              hitSuccesses += 1;
+            }
+          }
+          const bucket = Math.min(hitSuccesses, overallMax);
+          counts[bucket] += 1;
+        }
+        return counts.map((count) => count / iterations);
+      }
       const hitStrengthValue = parseNumber(inputs.hitStrength);
       const woundValueNumber = parseNumber(inputs.woundValue);
       const armorSaveValue = parseNumber(inputs.armorSave);
@@ -554,7 +602,7 @@ export default function ShootingCompareRange({
               onChange={onDiceCountChange}
             />
             <SectionBlock title="To hit" contentClassName="mt-3">
-              {!autoHit ? (
+              {(!autoHit || isHorusHeresy) ? (
                 <StatGrid
                   fields={[
                     {
@@ -580,29 +628,31 @@ export default function ShootingCompareRange({
                   </div>
                 ) : null}
               </div>
-              <OptionGroup layout="stack" className="mt-3">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={autoHit}
-                    onChange={(e) => onAutoHitChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Auto-hit
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={poisonedAttack}
-                    onChange={(e) => onPoisonedAttackChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Poisoned Attack
-                </label>
-              </OptionGroup>
+              {!isHorusHeresy ? (
+                <OptionGroup layout="stack" className="mt-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={autoHit}
+                      onChange={(e) => onAutoHitChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Auto-hit
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={poisonedAttack}
+                      onChange={(e) => onPoisonedAttackChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Poisoned Attack
+                  </label>
+                </OptionGroup>
+              ) : null}
             </SectionBlock>
 
-            {!autoHit ? (
+            {!autoHit && !isHorusHeresy ? (
               <SectionBlock title="Hit modifiers" contentClassName="mt-3">
                 <OptionGroup layout="grid2">
                   <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
@@ -636,7 +686,7 @@ export default function ShootingCompareRange({
               </SectionBlock>
             ) : null}
 
-            {!autoHit ? (
+            {!autoHit && !isHorusHeresy ? (
               <SectionBlock title="Cover" contentClassName="mt-3">
                 <OptionGroup layout="grid2">
                   <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
@@ -665,96 +715,101 @@ export default function ShootingCompareRange({
               <ReRollOptions config={rerollHitConfig} onChange={onRerollHitChange} compact />
             </SectionBlock>
 
-            <SectionBlock title="To wound" contentClassName="mt-3">
-              <StatGrid
-                fields={[
-                  {
-                    id: 'shootingCompareHitStrength',
-                    label: 'Hit Strength',
-                    value: hitStrength,
-                    min: '1',
-                    onChange: onHitStrengthChange,
-                  },
-                  {
-                    id: 'shootingCompareWoundValue',
-                    label: 'To Wound (X+)',
-                    value: woundValue,
-                    min: '1',
-                    max: '7',
-                    onChange: onWoundValueChange,
-                  },
-                ]}
-              />
-              <div className="mt-3 space-y-3">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={multipleWoundsEnabled}
-                    onChange={(e) => onMultipleWoundsChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Multiple wounds
-                </label>
-                {multipleWoundsEnabled ? (
-                  <InputField
-                    id="shootingCompareMultipleWoundsValue"
-                    label="Multiple wounds value"
-                    value={multipleWoundsValue}
-                    type="text"
-                    pattern="^(?:[dD]\\d+|\\d+)$"
-                    title="Use a number or dX (e.g. 2 or d6)"
-                    placeholder="Value or dX (e.g. 2 or d6)"
-                    onChange={onMultipleWoundsValueChange}
-                  />
-                ) : null}
-              </div>
-            </SectionBlock>
-
-            <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
-              <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
-            </SectionBlock>
-
-            <SectionBlock title="Savings" contentClassName="mt-3">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-                <div className="space-y-3">
+            {!isHorusHeresy ? (
+              <>
+                <SectionBlock title="To wound" contentClassName="mt-3">
                   <StatGrid
-                    columns={1}
                     fields={[
                       {
-                        id: 'shootingCompareArmorSave',
-                        label: 'Armor Save (X+)',
-                        value: armorSave,
+                        id: 'shootingCompareHitStrength',
+                        label: 'Hit Strength',
+                        value: hitStrength,
+                        min: '1',
+                        onChange: onHitStrengthChange,
+                      },
+                      {
+                        id: 'shootingCompareWoundValue',
+                        label: 'To Wound (X+)',
+                        value: woundValue,
                         min: '1',
                         max: '7',
-                        onChange: onArmorSaveChange,
+                        onChange: onWoundValueChange,
                       },
                     ]}
                   />
-                  <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
-                </div>
-                <div className="space-y-3">
-                  <StatGrid
-                    columns={1}
-                    fields={[
-                      {
-                        id: 'shootingCompareWardSave',
-                        label: 'Ward Save (X+)',
-                        value: wardSave,
-                        min: '0',
-                        max: '7',
-                        placeholder: 'Leave empty if none',
-                        onChange: onWardSaveChange,
-                      },
-                    ]}
-                  />
-                  <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
-                </div>
-              </div>
-            </SectionBlock>
+                  <div className="mt-3 space-y-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={multipleWoundsEnabled}
+                        onChange={(e) => onMultipleWoundsChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Multiple wounds
+                    </label>
+                    {multipleWoundsEnabled ? (
+                      <InputField
+                        id="shootingCompareMultipleWoundsValue"
+                        label="Multiple wounds value"
+                        value={multipleWoundsValue}
+                        type="text"
+                        pattern="^(?:[dD]\\d+|\\d+)$"
+                        title="Use a number or dX (e.g. 2 or d6)"
+                        placeholder="Value or dX (e.g. 2 or d6)"
+                        onChange={onMultipleWoundsValueChange}
+                      />
+                    ) : null}
+                  </div>
+                </SectionBlock>
+
+                <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
+                  <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
+                </SectionBlock>
+
+                <SectionBlock title="Savings" contentClassName="mt-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                    <div className="space-y-3">
+                      <StatGrid
+                        columns={1}
+                        fields={[
+                          {
+                            id: 'shootingCompareArmorSave',
+                            label: 'Armor Save (X+)',
+                            value: armorSave,
+                            min: '1',
+                            max: '7',
+                            onChange: onArmorSaveChange,
+                          },
+                        ]}
+                      />
+                      <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+                    </div>
+                    <div className="space-y-3">
+                      <StatGrid
+                        columns={1}
+                        fields={[
+                          {
+                            id: 'shootingCompareWardSave',
+                            label: 'Ward Save (X+)',
+                            value: wardSave,
+                            min: '0',
+                            max: '7',
+                            placeholder: 'Leave empty if none',
+                            onChange: onWardSaveChange,
+                          },
+                        ]}
+                      />
+                      <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+                    </div>
+                  </div>
+                </SectionBlock>
+              </>
+            ) : null}
           </div>
           <ActionBar>
             <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
-              Base final damage: <span className="font-mono text-zinc-900">{baseResult.toFixed(2)}</span>
+              {isHorusHeresy ? 'Base expected hits' : 'Base final damage'}:{' '}
+              <span className="font-mono text-zinc-900">{baseResult.toFixed(2)}</span>
             </div>
           </ActionBar>
         </Card>
@@ -780,10 +835,10 @@ export default function ShootingCompareRange({
                   <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Value to vary</label>
                   <select
                     className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                    value={item.singleField}
+                    value={resolveSingleField(item.singleField)}
                     onChange={(event) => updateCompare(item.id, { singleField: event.target.value as keyof RangeFieldValues })}
                   >
-                    {Object.entries(fieldLabels).map(([key, label]) => (
+                    {availableFieldEntries.map(([key, label]) => (
                       <option key={key} value={key}>
                         {label}
                       </option>

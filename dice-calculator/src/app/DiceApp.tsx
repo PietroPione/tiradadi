@@ -14,7 +14,7 @@ import PhaseSelector from '@/components/navigation/PhaseSelector';
 import SystemSelector from '@/components/navigation/SystemSelector';
 import ModeSelector from '@/components/navigation/ModeSelector';
 import ProbabilityTypeSelector from '@/components/navigation/ProbabilityTypeSelector';
-import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/dice-calculator';
+import { calculateAverages, type RerollConfig as DiceRerollConfig } from '@/lib/games/wfb8/dice-calculator';
 import TrechGenericRollCalculator from '@/components/calculator/TrechGenericRollCalculator';
 import TrechInjuryRollCalculator from '@/components/calculator/TrechInjuryRollCalculator';
 import TrechGenericProbabilityCalculator from '@/components/calculator/TrechGenericProbabilityCalculator';
@@ -29,9 +29,20 @@ import {
   getWoundTarget,
   parseSpecificValues,
   shouldRerollValue,
-} from '@/lib/roll-utils';
+} from '@/lib/games/wfb8/roll-utils';
+import {
+  calculateTrechGenericProbability,
+  calculateTrechGenericRoll,
+  calculateTrechInjuryProbability,
+  calculateTrechInjuryRoll,
+} from '@/lib/games/trech/trech-utils';
+import {
+  getHh2HitProfile,
+  getHh2HitSuccessChance,
+  rollHh2Hit,
+} from '@/lib/games/hh2/shooting-utils';
 
-type GameSystem = 'wfb8' | 'trech';
+type GameSystem = 'wfb8' | 'trech' | 'hh2';
 type Phase = 'general' | 'shooting' | 'combat' | 'morale' | 'challenge' | 'tc-generic' | 'tc-injury';
 type RerollState = RerollConfig;
 
@@ -340,7 +351,11 @@ export default function DiceApp() {
   });
   const [hasThrowResults, setHasThrowResults] = useState(false);
 
-  const systemLabel = gameSystem === 'trech' ? 'Trench Crusade' : 'Warhammer Fantasy 8th';
+  const systemLabel = gameSystem === 'trech'
+    ? 'Trench Crusade'
+    : gameSystem === 'hh2'
+      ? 'Horus Heresy (second edition)'
+      : 'Warhammer Fantasy 8th';
 
   const setProbabilityModeAll = (mode: 'single' | 'range' | null) => {
     setAppProbabilityMode(mode);
@@ -488,6 +503,9 @@ export default function DiceApp() {
     if (Number.isNaN(parsedBallisticSkill)) {
       return Number.NaN;
     }
+    if (gameSystem === 'hh2') {
+      return getHh2HitProfile(parsedBallisticSkill).baseTarget;
+    }
     if (shootingAutoHit) {
       return 1;
     }
@@ -598,37 +616,22 @@ export default function DiceApp() {
     }
 
     setTrechErrorMessage('');
-    const netDice = parsedPlus - parsedMinus;
-    const extraDice = Math.abs(netDice);
-    const totalDice = 2 + extraDice;
-    const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
-    const sortedRolls = [...rolls].sort((a, b) => a - b);
-    let selectedRolls: number[] = [];
-    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
-
-    if (netDice > 0) {
-      selectedRolls = sortedRolls.slice(-2);
-      selectionMode = 'highest';
-    } else if (netDice < 0) {
-      selectedRolls = sortedRolls.slice(0, 2);
-      selectionMode = 'lowest';
-    } else {
-      selectedRolls = sortedRolls;
-    }
-
-    const baseTotal = selectedRolls.reduce((sum, roll) => sum + roll, 0);
-    const finalTotal = baseTotal + parsedPositive - parsedNegative;
-    const success = finalTotal >= 7;
+    const result = calculateTrechGenericRoll({
+      plusDice: parsedPlus,
+      minusDice: parsedMinus,
+      positiveModifier: parsedPositive,
+      negativeModifier: parsedNegative,
+    });
 
     setTrechResults({
-      rolls,
-      selectedRolls,
-      baseTotal,
-      finalTotal,
-      success,
-      selectionMode,
+      rolls: result.rolls,
+      selectedRolls: result.selectedRolls,
+      baseTotal: result.baseTotal,
+      finalTotal: result.finalTotal,
+      success: result.success,
+      selectionMode: result.selectionMode,
     });
-    setTrechDebug({ rolls, selectedRolls });
+    setTrechDebug({ rolls: result.rolls, selectedRolls: result.selectedRolls });
   };
 
   const handleTrechGenericProbabilityCalculate = () => {
@@ -650,50 +653,27 @@ export default function DiceApp() {
     }
 
     setTrechErrorMessage('');
-    const baseDice = 2;
-    const netDice = parsedPlus - parsedMinus;
-    const totalDice = baseDice + Math.abs(netDice);
-    const iterations = 20000;
-    let totalSum = 0;
-    let successCount = 0;
-    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
-
-    for (let i = 0; i < iterations; i += 1) {
-      const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
-      const sorted = [...rolls].sort((a, b) => a - b);
-      let selected = sorted;
-      if (netDice > 0) {
-        selected = sorted.slice(-baseDice);
-        selectionMode = 'highest';
-      } else if (netDice < 0) {
-        selected = sorted.slice(0, baseDice);
-        selectionMode = 'lowest';
-      }
-      const baseTotal = selected.reduce((sum, roll) => sum + roll, 0);
-      const finalTotal = baseTotal + parsedPositive - parsedNegative;
-      totalSum += finalTotal;
-      if (finalTotal >= 7) {
-        successCount += 1;
-      }
-    }
-
-    const expectedTotal = totalSum / iterations;
-    const successChance = successCount / iterations;
+    const result = calculateTrechGenericProbability({
+      plusDice: parsedPlus,
+      minusDice: parsedMinus,
+      positiveModifier: parsedPositive,
+      negativeModifier: parsedNegative,
+    });
 
     setTrechProbabilityResults({
-      expectedTotal,
-      successChance,
-      selectionMode,
-      baseDice,
-      totalDice,
-      netDice,
+      expectedTotal: result.expectedTotal,
+      successChance: result.successChance,
+      selectionMode: result.selectionMode,
+      baseDice: result.baseDice,
+      totalDice: result.totalDice,
+      netDice: result.netDice,
     });
     setTrechProbabilityDebug({
-      baseDice,
-      totalDice,
-      netDice,
-      expectedTotal,
-      successChance,
+      baseDice: result.baseDice,
+      totalDice: result.totalDice,
+      netDice: result.netDice,
+      expectedTotal: result.expectedTotal,
+      successChance: result.successChance,
     });
   };
 
@@ -722,61 +702,38 @@ export default function DiceApp() {
     }
 
     setTrechInjuryErrorMessage('');
-    const baseDice = trechInjuryWithThreeDice ? 3 : 2;
-    const netDice = parsedPlus - parsedMinus;
-    const extraDice = Math.abs(netDice);
-    const totalDice = baseDice + extraDice;
-    const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
-    const sortedRolls = [...rolls].sort((a, b) => a - b);
-    let selectedRolls: number[] = [];
-    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
-
-    if (netDice > 0) {
-      selectedRolls = sortedRolls.slice(-baseDice);
-      selectionMode = 'highest';
-    } else if (netDice < 0) {
-      selectedRolls = sortedRolls.slice(0, baseDice);
-      selectionMode = 'lowest';
-    } else {
-      selectedRolls = sortedRolls;
-    }
-
-    const baseTotal = selectedRolls.reduce((sum, roll) => sum + roll, 0);
-    const armorValue = trechInjuryNoArmorSave
-      ? 0
-      : Math.max(0, parsedTargetArmor + parsedArmorPositive - parsedArmorNegative);
-    const finalTotal = baseTotal + parsedPositive - parsedNegative - armorValue;
-    let outcome: 'No effect' | 'Minor hit' | 'Down' | 'Out of action' = 'Minor hit';
-    if (finalTotal <= 1) {
-      outcome = 'No effect';
-    } else if (finalTotal <= 6) {
-      outcome = 'Minor hit';
-    } else if (finalTotal <= 8) {
-      outcome = 'Down';
-    } else {
-      outcome = 'Out of action';
-    }
+    const result = calculateTrechInjuryRoll({
+      plusDice: parsedPlus,
+      minusDice: parsedMinus,
+      positiveModifier: parsedPositive,
+      negativeModifier: parsedNegative,
+      withThreeDice: trechInjuryWithThreeDice,
+      targetArmor: parsedTargetArmor,
+      noArmorSave: trechInjuryNoArmorSave,
+      armorPositiveModifier: parsedArmorPositive,
+      armorNegativeModifier: parsedArmorNegative,
+    });
 
     setTrechInjuryResults({
-      rolls,
-      selectedRolls,
-      baseTotal,
-      finalTotal,
-      outcome,
-      selectionMode,
+      rolls: result.rolls,
+      selectedRolls: result.selectedRolls,
+      baseTotal: result.baseTotal,
+      finalTotal: result.finalTotal,
+      outcome: result.outcome,
+      selectionMode: result.selectionMode,
     });
     setTrechInjuryDebug({
-      rolls,
-      selectedRolls,
-      baseDice,
-      totalDice,
-      netDice,
+      rolls: result.rolls,
+      selectedRolls: result.selectedRolls,
+      baseDice: result.baseDice,
+      totalDice: result.totalDice,
+      netDice: result.netDice,
       targetArmor: parsedTargetArmor,
       armorPositive: parsedArmorPositive,
       armorNegative: parsedArmorNegative,
-      armorApplied: armorValue,
-      baseTotal,
-      finalTotal,
+      armorApplied: result.armorApplied,
+      baseTotal: result.baseTotal,
+      finalTotal: result.finalTotal,
     });
   };
 
@@ -805,71 +762,40 @@ export default function DiceApp() {
     }
 
     setTrechInjuryErrorMessage('');
-    const baseDice = trechInjuryWithThreeDice ? 3 : 2;
-    const netDice = parsedPlus - parsedMinus;
-    const totalDice = baseDice + Math.abs(netDice);
-    const armorValue = trechInjuryNoArmorSave
-      ? 0
-      : Math.max(0, parsedTargetArmor + parsedArmorPositive - parsedArmorNegative);
-    const iterations = 20000;
-    let totalSum = 0;
-    const outcomeCounts = { noEffect: 0, minorHit: 0, down: 0, outOfAction: 0 };
-    let selectionMode: 'highest' | 'lowest' | 'normal' = 'normal';
-
-    for (let i = 0; i < iterations; i += 1) {
-      const rolls = Array.from({ length: totalDice }, () => Math.floor(Math.random() * 6) + 1);
-      const sorted = [...rolls].sort((a, b) => a - b);
-      let selected = sorted;
-      if (netDice > 0) {
-        selected = sorted.slice(-baseDice);
-        selectionMode = 'highest';
-      } else if (netDice < 0) {
-        selected = sorted.slice(0, baseDice);
-        selectionMode = 'lowest';
-      }
-      const baseTotal = selected.reduce((sum, roll) => sum + roll, 0);
-      const finalTotal = baseTotal + parsedPositive - parsedNegative - armorValue;
-      totalSum += finalTotal;
-      if (finalTotal <= 1) {
-        outcomeCounts.noEffect += 1;
-      } else if (finalTotal <= 6) {
-        outcomeCounts.minorHit += 1;
-      } else if (finalTotal <= 8) {
-        outcomeCounts.down += 1;
-      } else {
-        outcomeCounts.outOfAction += 1;
-      }
-    }
-
-    const expectedTotal = totalSum / iterations;
-    const outcomeChances = {
-      noEffect: outcomeCounts.noEffect / iterations,
-      minorHit: outcomeCounts.minorHit / iterations,
-      down: outcomeCounts.down / iterations,
-      outOfAction: outcomeCounts.outOfAction / iterations,
-    };
+    const result = calculateTrechInjuryProbability({
+      plusDice: parsedPlus,
+      minusDice: parsedMinus,
+      positiveModifier: parsedPositive,
+      negativeModifier: parsedNegative,
+      withThreeDice: trechInjuryWithThreeDice,
+      targetArmor: parsedTargetArmor,
+      noArmorSave: trechInjuryNoArmorSave,
+      armorPositiveModifier: parsedArmorPositive,
+      armorNegativeModifier: parsedArmorNegative,
+    });
 
     setTrechInjuryProbabilityResults({
-      expectedTotal,
-      outcomeChances,
-      selectionMode,
-      baseDice,
-      totalDice,
-      netDice,
-      armorApplied: armorValue,
+      expectedTotal: result.expectedTotal,
+      outcomeChances: result.outcomeChances,
+      selectionMode: result.selectionMode,
+      baseDice: result.baseDice,
+      totalDice: result.totalDice,
+      netDice: result.netDice,
+      armorApplied: result.armorApplied,
     });
     setTrechInjuryProbabilityDebug({
-      baseDice,
-      totalDice,
-      netDice,
-      armorApplied: armorValue,
-      expectedTotal,
-      outcomeChances,
+      baseDice: result.baseDice,
+      totalDice: result.totalDice,
+      netDice: result.netDice,
+      armorApplied: result.armorApplied,
+      expectedTotal: result.expectedTotal,
+      outcomeChances: result.outcomeChances,
     });
   };
 
   const handleShootingAverageCalculate = () => {
     const parsedDiceCount = Number.parseInt(shootingDiceCount, 10);
+    const parsedBallisticSkill = Number.parseInt(ballisticSkill, 10);
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedWoundValue = Number.parseInt(shootingWoundValue, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
@@ -880,6 +806,42 @@ export default function DiceApp() {
     const parsedMultipleWounds = shootingMultipleWoundsEnabled
       ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
       : null;
+
+    setShootingErrorMessage('');
+    if (gameSystem === 'hh2') {
+      if (
+        Number.isNaN(parsedDiceCount) ||
+        parsedDiceCount <= 0 ||
+        Number.isNaN(parsedBallisticSkill)
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      const hitChance = getHh2HitSuccessChance(parsedBallisticSkill, shootingRerollHit);
+      const successfulHits = parsedDiceCount * hitChance;
+      const finalDamage = successfulHits;
+      setShootingProbabilityResults({
+        successfulHits: parseFloat(successfulHits.toFixed(2)),
+        successfulWounds: 0,
+        poisonedAutoWounds: 0,
+        failedArmorSaves: 0,
+        failedWardSaves: 0,
+        finalDamage: parseFloat(finalDamage.toFixed(2)),
+      });
+      setShootingDebug({
+        hitInitialRolls: [],
+        hitRerollRolls: [],
+        woundInitialRolls: [],
+        woundRerollRolls: [],
+        armorInitialRolls: [],
+        armorRerollRolls: [],
+        wardInitialRolls: [],
+        wardRerollRolls: [],
+        multipleWoundsRolls: [],
+      });
+      setHasShootingProbabilityResults(true);
+      return;
+    }
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -894,8 +856,6 @@ export default function DiceApp() {
       setShootingErrorMessage('Devi inserire un risultato di dado');
       return;
     }
-
-    setShootingErrorMessage('');
     const hitChance = shootingAutoHit
       ? 1
       : getShootingSuccessChanceWithReroll(resultNeeded, shootingRerollHit);
@@ -955,6 +915,7 @@ export default function DiceApp() {
 
   const handleShootingThrowCalculate = () => {
     const parsedDiceCount = Number.parseInt(shootingDiceCount, 10);
+    const parsedBallisticSkill = Number.parseInt(ballisticSkill, 10);
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
@@ -965,6 +926,52 @@ export default function DiceApp() {
     const parsedMultipleWounds = shootingMultipleWoundsEnabled
       ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
       : null;
+
+    setShootingErrorMessage('');
+    if (gameSystem === 'hh2') {
+      if (
+        Number.isNaN(parsedDiceCount) ||
+        parsedDiceCount <= 0 ||
+        Number.isNaN(parsedBallisticSkill)
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      const hitInitialRolls: number[] = [];
+      const hitRerollRolls: number[] = [];
+      let hitSuccesses = 0;
+      for (let i = 0; i < parsedDiceCount; i += 1) {
+        const result = rollHh2Hit(parsedBallisticSkill, shootingRerollHit);
+        hitInitialRolls.push(result.roll);
+        if (result.reroll !== null) {
+          hitRerollRolls.push(result.reroll);
+        }
+        if (result.success) {
+          hitSuccesses += 1;
+        }
+      }
+      setShootingThrowResults({
+        successfulHits: hitSuccesses,
+        successfulWounds: 0,
+        poisonedAutoWounds: 0,
+        failedArmorSaves: 0,
+        failedWardSaves: 0,
+        finalDamage: hitSuccesses,
+      });
+      setShootingDebug({
+        hitInitialRolls,
+        hitRerollRolls,
+        woundInitialRolls: [],
+        woundRerollRolls: [],
+        armorInitialRolls: [],
+        armorRerollRolls: [],
+        wardInitialRolls: [],
+        wardRerollRolls: [],
+        multipleWoundsRolls: [],
+      });
+      setHasShootingThrowResults(true);
+      return;
+    }
 
     if (
       Number.isNaN(parsedDiceCount) ||
@@ -979,8 +986,6 @@ export default function DiceApp() {
       setShootingErrorMessage('Devi inserire un risultato di dado');
       return;
     }
-
-    setShootingErrorMessage('');
     const rolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
     let hitSuccesses = 0;
     let poisonedAutoWounds = 0;
@@ -1382,6 +1387,7 @@ export default function DiceApp() {
               />
             ) : phase === 'shooting' ? (
               <ShootingPhaseCalculator
+                systemKey={gameSystem}
                 diceCount={shootingDiceCount}
                 mode={appMode}
                 probabilityMode={shootingProbabilityMode}
