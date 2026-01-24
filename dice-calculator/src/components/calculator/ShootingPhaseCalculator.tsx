@@ -10,7 +10,8 @@ import SectionBlock from '@/components/ui/SectionBlock';
 import StatGrid from '@/components/ui/StatGrid';
 import ShootingCompareRange from '@/components/calculator/ShootingCompareRange';
 import OptionGroup from '@/components/ui/OptionGroup';
-import { getHh2HitProfile } from '@/lib/games/hh2/shooting-utils';
+import ToggleButton from '@/components/ui/ToggleButton';
+import { getHh2HitProfile, getHh2WoundProfile } from '@/lib/games/hh2/shooting-utils';
 
 const formatRerollLabel = (config: RerollConfig) => {
   if (!config.enabled) {
@@ -29,12 +30,18 @@ type ShootingPhaseCalculatorProps = {
   mode: 'probability' | 'throw' | null;
   probabilityMode: 'single' | 'range' | null;
   ballisticSkill: string;
+  nightFighting: boolean;
   poisonedAttack: boolean;
   autoHit: boolean;
+  targetType: 'living' | 'vehicle';
+  targetWounds: string;
+  instantDeath: boolean;
+  atomanticShield: boolean;
   multipleWoundsEnabled: boolean;
   multipleWoundsValue: string;
   hitStrength: string;
   targetToughness: string;
+  armorPenetration: string;
   woundValue: string;
   armorSave: string;
   wardSave: string;
@@ -69,12 +76,18 @@ type ShootingPhaseCalculatorProps = {
   onDiceCountChange: (value: string) => void;
   onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
   onBallisticSkillChange: (value: string) => void;
+  onNightFightingChange: (value: boolean) => void;
   onPoisonedAttackChange: (value: boolean) => void;
   onAutoHitChange: (value: boolean) => void;
+  onTargetTypeChange: (value: 'living' | 'vehicle') => void;
+  onTargetWoundsChange: (value: string) => void;
+  onInstantDeathChange: (value: boolean) => void;
+  onAtomanticShieldChange: (value: boolean) => void;
   onMultipleWoundsChange: (value: boolean) => void;
   onMultipleWoundsValueChange: (value: string) => void;
   onHitStrengthChange: (value: string) => void;
   onTargetToughnessChange: (value: string) => void;
+  onArmorPenetrationChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
   onArmorSaveChange: (value: string) => void;
   onWardSaveChange: (value: string) => void;
@@ -94,12 +107,18 @@ export default function ShootingPhaseCalculator({
   mode,
   probabilityMode,
   ballisticSkill,
+  nightFighting,
   poisonedAttack,
   autoHit,
+  targetType,
+  targetWounds,
+  instantDeath,
+  atomanticShield,
   multipleWoundsEnabled,
   multipleWoundsValue,
   hitStrength,
   targetToughness,
+  armorPenetration,
   woundValue,
   armorSave,
   wardSave,
@@ -118,12 +137,18 @@ export default function ShootingPhaseCalculator({
   onDiceCountChange,
   onProbabilityModeChange,
   onBallisticSkillChange,
+  onNightFightingChange,
   onPoisonedAttackChange,
   onAutoHitChange,
+  onTargetTypeChange,
+  onTargetWoundsChange,
+  onInstantDeathChange,
+  onAtomanticShieldChange,
   onMultipleWoundsChange,
   onMultipleWoundsValueChange,
   onHitStrengthChange,
   onTargetToughnessChange,
+  onArmorPenetrationChange,
   onWoundValueChange,
   onArmorSaveChange,
   onWardSaveChange,
@@ -148,12 +173,19 @@ export default function ShootingPhaseCalculator({
         systemKey={systemKey}
         diceCount={diceCount}
         ballisticSkill={ballisticSkill}
+        nightFighting={nightFighting}
         modifiers={modifiers}
         poisonedAttack={poisonedAttack}
         autoHit={autoHit}
+        targetType={targetType}
+        targetWounds={targetWounds}
+        instantDeath={instantDeath}
+        atomanticShield={atomanticShield}
         multipleWoundsEnabled={multipleWoundsEnabled}
         multipleWoundsValue={multipleWoundsValue}
         hitStrength={hitStrength}
+        targetToughness={targetToughness}
+        armorPenetration={armorPenetration}
         woundValue={woundValue}
         armorSave={armorSave}
         wardSave={wardSave}
@@ -170,12 +202,19 @@ export default function ShootingPhaseCalculator({
         )}
         onDiceCountChange={onDiceCountChange}
         onBallisticSkillChange={onBallisticSkillChange}
+        onNightFightingChange={onNightFightingChange}
         onModifierChange={onModifierChange}
         onPoisonedAttackChange={onPoisonedAttackChange}
         onAutoHitChange={onAutoHitChange}
+        onTargetTypeChange={onTargetTypeChange}
+        onTargetWoundsChange={onTargetWoundsChange}
+        onInstantDeathChange={onInstantDeathChange}
+        onAtomanticShieldChange={onAtomanticShieldChange}
         onMultipleWoundsChange={onMultipleWoundsChange}
         onMultipleWoundsValueChange={onMultipleWoundsValueChange}
         onHitStrengthChange={onHitStrengthChange}
+        onTargetToughnessChange={onTargetToughnessChange}
+        onArmorPenetrationChange={onArmorPenetrationChange}
         onWoundValueChange={onWoundValueChange}
         onArmorSaveChange={onArmorSaveChange}
         onWardSaveChange={onWardSaveChange}
@@ -186,7 +225,7 @@ export default function ShootingPhaseCalculator({
       />
     );
   }
-  const hh2Profile = isHorusHeresy ? getHh2HitProfile(Number.parseInt(ballisticSkill, 10)) : null;
+  const hh2Profile = isHorusHeresy ? getHh2HitProfile(Number.parseInt(ballisticSkill, 10), { nightFighting }) : null;
   const modifiersLabel = [
     modifiers.longRange ? 'Long range' : null,
     modifiers.movement ? 'Movement' : null,
@@ -197,6 +236,7 @@ export default function ShootingPhaseCalculator({
     modifiers.hardCover ? 'Hard cover' : null,
   ].filter(Boolean).join(', ') || '-';
   const parsedHitStrength = Number.parseInt(hitStrength, 10);
+  const parsedTargetToughness = Number.parseInt(targetToughness, 10);
   const parsedArmorSave = Number.parseInt(armorSave, 10);
   const effectiveArmorSave = Number.isNaN(parsedHitStrength) || Number.isNaN(parsedArmorSave)
     ? '-'
@@ -244,6 +284,15 @@ export default function ShootingPhaseCalculator({
     }
     : renderResultNeeded();
   const isPoisonedActive = !isHorusHeresy && poisonedAttack && resultNeeded <= 6 && !autoHit;
+  const hh2WoundProfile = isHorusHeresy && targetType === 'living'
+    ? getHh2WoundProfile(parsedHitStrength, parsedTargetToughness)
+    : null;
+  const hh2WoundDisplay = hh2WoundProfile?.impossible
+    ? { main: 'Impossible', sub: 'Target toughness is too high' }
+    : hh2WoundProfile?.target
+      ? { main: `${hh2WoundProfile.target}+`, sub: null }
+      : { main: '-', sub: null };
+  const isHh2InstantDeath = (hh2WoundProfile?.instantDeath ?? false) || instantDeath;
 
   return (
     <Card className="px-4 py-5 sm:px-6 sm:py-6">
@@ -267,29 +316,44 @@ export default function ShootingPhaseCalculator({
           onChange={onDiceCountChange}
         />
         {isHorusHeresy ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
-            <InputField
-              id="ballisticSkill"
-              label="Balistic Skill"
-              value={ballisticSkill}
-              min="1"
-              max="10"
-              onChange={onBallisticSkillChange}
-            />
-            <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
-                Result needed
-              </p>
-              <p className="mt-1 font-mono text-2xl font-bold text-white">
-                {resultDisplay.main}
-              </p>
-              {resultDisplay.sub ? (
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                  {resultDisplay.sub}
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
+              <InputField
+                id="ballisticSkill"
+                label="Balistic Skill"
+                value={ballisticSkill}
+                min="1"
+                max="10"
+                onChange={onBallisticSkillChange}
+              />
+              <div className="border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                  Result needed
                 </p>
-              ) : null}
+                <p className="mt-1 font-mono text-2xl font-bold text-white">
+                  {resultDisplay.main}
+                </p>
+                {resultDisplay.sub ? (
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                    {resultDisplay.sub}
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
+            <SectionBlock title="Special rules" contentClassName="mt-3">
+              <OptionGroup layout="stack">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={nightFighting}
+                    onChange={(e) => onNightFightingChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Night fighting
+                </label>
+              </OptionGroup>
+            </SectionBlock>
+          </>
         ) : !autoHit ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end sm:gap-5">
             <InputField
@@ -524,7 +588,142 @@ export default function ShootingPhaseCalculator({
               </div>
             </SectionBlock>
           </>
-        ) : null}
+        ) : (
+          <>
+            <SectionBlock title="Target" contentClassName="mt-3">
+              <div className="flex flex-wrap gap-2">
+                <ToggleButton
+                  active={targetType === 'living'}
+                  onClick={() => onTargetTypeChange('living')}
+                  size="sm"
+                >
+                  Living target
+                </ToggleButton>
+                <ToggleButton
+                  active={targetType === 'vehicle'}
+                  onClick={() => onTargetTypeChange('vehicle')}
+                  size="sm"
+                >
+                  Vehicle
+                </ToggleButton>
+              </div>
+            </SectionBlock>
+            <SectionBlock title="To wound" contentClassName="mt-3">
+              {targetType === 'living' ? (
+                <>
+                  <StatGrid
+                    columns={2}
+                    fields={[
+                      {
+                        id: 'shootingHitStrength',
+                        label: 'Strength',
+                        value: hitStrength,
+                        min: '1',
+                        onChange: onHitStrengthChange,
+                      },
+                      {
+                        id: 'shootingTargetToughness',
+                        label: 'Toughness',
+                        value: targetToughness,
+                        min: '1',
+                        onChange: onTargetToughnessChange,
+                      },
+                      {
+                        id: 'shootingArmorPenetration',
+                        label: 'Armor Penetration',
+                        value: armorPenetration,
+                        min: '0',
+                        placeholder: 'Leave empty if none',
+                        onChange: onArmorPenetrationChange,
+                      },
+                      {
+                        id: 'shootingTargetWounds',
+                        label: 'Target Wounds',
+                        value: targetWounds,
+                        min: '1',
+                        onChange: onTargetWoundsChange,
+                      },
+                    ]}
+                  />
+                  <div className="mt-3 border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                      Result needed
+                    </p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-white">
+                      {hh2WoundDisplay.main}
+                    </p>
+                    {hh2WoundDisplay.sub ? (
+                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                        {hh2WoundDisplay.sub}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {hh2WoundProfile?.impossible ? (
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                        Impossible to wound: toughness is at least double the strength.
+                      </p>
+                    ) : null}
+                    {isHh2InstantDeath ? (
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-700">
+                        Instant death active.
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
+                  Vehicle wound rules will be added later.
+                </p>
+              )}
+              <div className="mt-3 space-y-2">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={instantDeath}
+                    onChange={(e) => onInstantDeathChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Instant death
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={atomanticShield}
+                    onChange={(e) => onAtomanticShieldChange(e.target.checked)}
+                    className="h-4 w-4 border-2 border-zinc-900"
+                  />
+                  Atomantic shield
+                </label>
+              </div>
+            </SectionBlock>
+            <SectionBlock title="Saves" contentClassName="mt-3">
+              <StatGrid
+                columns={2}
+                fields={[
+                  {
+                    id: 'shootingArmorSave',
+                    label: 'Armor Save (X+)',
+                    value: armorSave,
+                    min: '0',
+                    max: '7',
+                    placeholder: 'Leave empty if none',
+                    onChange: onArmorSaveChange,
+                  },
+                  {
+                    id: 'shootingInvulnerableSave',
+                    label: 'Invulnerable Save (X+)',
+                    value: wardSave,
+                    min: '0',
+                    max: '7',
+                    placeholder: 'Leave empty if none',
+                    onChange: onWardSaveChange,
+                  },
+                ]}
+              />
+            </SectionBlock>
+          </>
+        )}
       </div>
 
       <ActionBar>
@@ -539,20 +738,47 @@ export default function ShootingPhaseCalculator({
       ) : null}
 
       {isProbability && hasProbabilityResults ? (
-        <ProbabilityResultsCard results={probabilityResults} poisonedAttack={isPoisonedActive} />
+        <ProbabilityResultsCard
+          results={probabilityResults}
+          poisonedAttack={isPoisonedActive}
+          wardLabel={isHorusHeresy ? 'Invulnerable' : 'Ward'}
+        />
       ) : null}
 
       {!isProbability && hasThrowResults ? (
-        <ProbabilityResultsCard results={throwResults} poisonedAttack={isPoisonedActive} />
+        <ProbabilityResultsCard
+          results={throwResults}
+          poisonedAttack={isPoisonedActive}
+          wardLabel={isHorusHeresy ? 'Invulnerable' : 'Ward'}
+        />
+      ) : null}
+      {isHorusHeresy && targetType === 'living' && hh2WoundProfile?.impossible ? (
+        <p className="mt-4 border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
+          Impossible to wound: target toughness is at least double the strength.
+        </p>
+      ) : null}
+      {isHorusHeresy && isHh2InstantDeath ? (
+        <p className="mt-4 border-2 border-zinc-900 bg-zinc-900 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">
+          Instant death active.
+        </p>
       ) : null}
 
       <DebugPanel
         lines={isHorusHeresy ? [
           { label: 'Dice count', value: diceCount || '-' },
           { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },
+          { label: 'Night fighting', value: nightFighting ? 'Yes' : 'No' },
+          { label: 'Target', value: targetType },
+          { label: 'Wound needed', value: hh2WoundProfile?.target ? `${hh2WoundProfile.target}+` : '-' },
+          { label: 'Armor Penetration', value: armorPenetration.trim() || '-' },
+          { label: 'Armor Save', value: armorSave.trim() ? `${armorSave}+` : '-' },
+          { label: 'Invulnerable Save', value: wardSave.trim() ? `${wardSave}+` : '-' },
+          { label: 'Instant death', value: isHh2InstantDeath ? 'Yes' : 'No' },
+          { label: 'Atomantic shield', value: atomanticShield ? 'Yes' : 'No' },
           { label: 'Re-roll hit', value: formatRerollLabel(rerollHitConfig) },
           { label: 'Hit initial rolls', value: debug.hitInitialRolls.join(', ') || '-' },
           { label: 'Hit re-rolls', value: debug.hitRerollRolls.join(', ') || '-' },
+          { label: 'Wound rolls', value: debug.woundInitialRolls.join(', ') || '-' },
         ] : [
           { label: 'Dice count', value: diceCount || '-' },
           { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },

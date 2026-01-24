@@ -8,6 +8,7 @@ import InputField from '@/components/ui/InputField';
 import ActionBar from '@/components/ui/ActionBar';
 import Button from '@/components/ui/Button';
 import LineChart from '@/components/ui/LineChart';
+import ToggleButton from '@/components/ui/ToggleButton';
 import ReRollOptions, { type RerollConfig } from '@/components/calculator/ReRollOptions';
 import {
   getFaceProbabilitiesWithReroll,
@@ -15,7 +16,13 @@ import {
   parseSpecificValues,
   shouldRerollValue,
 } from '@/lib/games/wfb8/roll-utils';
-import { getHh2HitProfile, getHh2HitSuccessChance, rollHh2Hit } from '@/lib/games/hh2/shooting-utils';
+import {
+  getHh2HitProfile,
+  getHh2HitSuccessChance,
+  getHh2WoundProfile,
+  getHh2WoundSuccessChance,
+  rollHh2Hit,
+} from '@/lib/games/hh2/shooting-utils';
 
 type ShootingModifiers = {
   longRange: boolean;
@@ -28,12 +35,19 @@ type ShootingModifiers = {
 type ShootingInputs = {
   diceCount: string;
   ballisticSkill: string;
+  nightFighting: boolean;
   modifiers: ShootingModifiers;
   poisonedAttack: boolean;
   autoHit: boolean;
+  targetType: 'living' | 'vehicle';
+  targetWounds: string;
+  instantDeath: boolean;
+  atomanticShield: boolean;
   multipleWoundsEnabled: boolean;
   multipleWoundsValue: string;
   hitStrength: string;
+  targetToughness: string;
+  armorPenetration: string;
   woundValue: string;
   armorSave: string;
   wardSave: string;
@@ -68,12 +82,19 @@ type ShootingCompareRangeProps = ShootingInputs & {
   rightSlot?: ReactNode;
   onDiceCountChange: (value: string) => void;
   onBallisticSkillChange: (value: string) => void;
+  onNightFightingChange: (value: boolean) => void;
   onModifierChange: (key: keyof ShootingModifiers, value: boolean) => void;
   onPoisonedAttackChange: (value: boolean) => void;
   onAutoHitChange: (value: boolean) => void;
+  onTargetTypeChange: (value: 'living' | 'vehicle') => void;
+  onTargetWoundsChange: (value: string) => void;
+  onInstantDeathChange: (value: boolean) => void;
+  onAtomanticShieldChange: (value: boolean) => void;
   onMultipleWoundsChange: (value: boolean) => void;
   onMultipleWoundsValueChange: (value: string) => void;
   onHitStrengthChange: (value: string) => void;
+  onTargetToughnessChange: (value: string) => void;
+  onArmorPenetrationChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
   onArmorSaveChange: (value: string) => void;
   onWardSaveChange: (value: string) => void;
@@ -143,11 +164,55 @@ const calculateFinalDamage = (inputs: ShootingInputs, systemKey: 'wfb8' | 'trech
     if (Number.isNaN(parsedDice) || parsedDice <= 0 || Number.isNaN(parsedBallistic)) {
       return 0;
     }
-    const hitChance = getHh2HitSuccessChance(parsedBallistic, inputs.rerollHitConfig);
+    const hitChance = getHh2HitSuccessChance(parsedBallistic, inputs.rerollHitConfig, {
+      nightFighting: inputs.nightFighting,
+    });
     if (Number.isNaN(hitChance)) {
       return 0;
     }
-    return parseFloat((parsedDice * hitChance).toFixed(2));
+    const expectedHits = parsedDice * hitChance;
+    const parsedStrength = parseNumber(inputs.hitStrength);
+    const parsedToughness = parseNumber(inputs.targetToughness);
+    const parsedTargetWounds = parseNumber(inputs.targetWounds);
+    const parsedArmorSave = parseNumber(inputs.armorSave);
+    const parsedInvulnerable = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
+    const parsedArmorPenetration = inputs.armorPenetration.trim() === ''
+      ? Number.NaN
+      : parseNumber(inputs.armorPenetration);
+    let successfulWounds = expectedHits;
+    if (inputs.targetType === 'living') {
+      if (Number.isNaN(parsedStrength) || Number.isNaN(parsedToughness)) {
+        return 0;
+      }
+      const woundChance = getHh2WoundSuccessChance(parsedStrength, parsedToughness);
+      if (Number.isNaN(woundChance)) {
+        return 0;
+      }
+      successfulWounds = expectedHits * woundChance;
+    }
+    const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
+      parsedArmorPenetration > 0 &&
+      parsedArmorPenetration <= parsedArmorSave;
+    const armorSaveChance = !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
+      ? (7 - parsedArmorSave) / 6
+      : 0;
+    const invulnerableChance = parsedInvulnerable > 1 && parsedInvulnerable <= 6
+      ? (7 - parsedInvulnerable) / 6
+      : 0;
+    const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
+    const failedInvulnerableSaves = failedArmorSaves * (1 - invulnerableChance);
+    let finalDamage = failedInvulnerableSaves;
+    if (inputs.targetType === 'living' && parsedTargetWounds > 0) {
+      const instantDeathActive = inputs.instantDeath || parsedStrength >= parsedToughness * 2;
+      if (instantDeathActive) {
+        if (inputs.atomanticShield) {
+          finalDamage = failedInvulnerableSaves * 2;
+        } else {
+          finalDamage = failedInvulnerableSaves * parsedTargetWounds;
+        }
+      }
+    }
+    return parseFloat(finalDamage.toFixed(2));
   }
   const parsedStrength = parseNumber(inputs.hitStrength);
   const parsedWound = parseNumber(inputs.woundValue);
@@ -224,12 +289,19 @@ export default function ShootingCompareRange({
   systemKey,
   diceCount,
   ballisticSkill,
+  nightFighting,
   modifiers,
   poisonedAttack,
   autoHit,
+  targetType,
+  targetWounds,
+  instantDeath,
+  atomanticShield,
   multipleWoundsEnabled,
   multipleWoundsValue,
   hitStrength,
+  targetToughness,
+  armorPenetration,
   woundValue,
   armorSave,
   wardSave,
@@ -242,12 +314,19 @@ export default function ShootingCompareRange({
   rightSlot,
   onDiceCountChange,
   onBallisticSkillChange,
+  onNightFightingChange,
   onModifierChange,
   onPoisonedAttackChange,
   onAutoHitChange,
+  onTargetTypeChange,
+  onTargetWoundsChange,
+  onInstantDeathChange,
+  onAtomanticShieldChange,
   onMultipleWoundsChange,
   onMultipleWoundsValueChange,
   onHitStrengthChange,
+  onTargetToughnessChange,
+  onArmorPenetrationChange,
   onWoundValueChange,
   onArmorSaveChange,
   onWardSaveChange,
@@ -259,12 +338,19 @@ export default function ShootingCompareRange({
   const baseInputs: ShootingInputs = {
     diceCount,
     ballisticSkill,
+    nightFighting,
     modifiers,
     poisonedAttack,
     autoHit,
+    targetType,
+    targetWounds,
+    instantDeath,
+    atomanticShield,
     multipleWoundsEnabled,
     multipleWoundsValue,
     hitStrength,
+    targetToughness,
+    armorPenetration,
     woundValue,
     armorSave,
     wardSave,
@@ -284,7 +370,10 @@ export default function ShootingCompareRange({
     values: Record<string, number>;
   }>>([]);
   const [generatedBaseResult, setGeneratedBaseResult] = useState<number | null>(null);
-  const hh2Profile = isHorusHeresy ? getHh2HitProfile(parseNumber(ballisticSkill)) : null;
+  const hh2Profile = isHorusHeresy ? getHh2HitProfile(parseNumber(ballisticSkill), { nightFighting }) : null;
+  const hh2WoundProfile = isHorusHeresy && targetType === 'living'
+    ? getHh2WoundProfile(parseNumber(hitStrength), parseNumber(targetToughness))
+    : null;
   const resultNeeded = isHorusHeresy && hh2Profile
     ? hh2Profile.baseTarget
     : getShootingResultNeeded(parseNumber(ballisticSkill), modifiers, autoHit);
@@ -294,6 +383,12 @@ export default function ShootingCompareRange({
       sub: hh2Profile.followUpTarget ? `then ${hh2Profile.followUpTarget}+` : null,
     }
     : renderResultNeeded(resultNeeded, autoHit);
+  const hh2WoundDisplay = hh2WoundProfile?.impossible
+    ? { main: 'Impossible', sub: 'Target toughness is too high' }
+    : hh2WoundProfile?.target
+      ? { main: `${hh2WoundProfile.target}+`, sub: null }
+      : { main: '-', sub: null };
+  const isHh2InstantDeath = (hh2WoundProfile?.instantDeath ?? false) || instantDeath;
 
   const updateCompare = (id: string, patch: Partial<CompareConfig>) => {
     setCompareItems((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -373,17 +468,34 @@ export default function ShootingCompareRange({
   const handleGenerate = () => {
     const { rangeSeries } = buildSeries();
     const iterations = 20000;
+    const getHh2MaxDamage = (inputs: ShootingInputs) => {
+      const dice = parseNumber(inputs.diceCount);
+      const wounds = parseNumber(inputs.targetWounds);
+      const strengthValue = parseNumber(inputs.hitStrength);
+      const toughnessValue = parseNumber(inputs.targetToughness);
+      const instantDeathActive = inputs.instantDeath || strengthValue >= toughnessValue * 2;
+      if (inputs.targetType !== 'living') {
+        return Math.max(0, dice);
+      }
+      if (inputs.atomanticShield) {
+        return Math.max(0, dice * 3);
+      }
+      if (instantDeathActive) {
+        return Number.isNaN(wounds) ? Math.max(0, dice) : Math.max(0, dice * wounds);
+      }
+      return Math.max(0, dice);
+    };
     const baseMaxMultiple = multipleWoundsEnabled
       ? (parseMultipleWoundsValue(multipleWoundsValue)?.type === 'dice'
         ? (parseMultipleWoundsValue(multipleWoundsValue)?.sides ?? 1)
         : (parseMultipleWoundsValue(multipleWoundsValue)?.value ?? 1))
       : 1;
     const baseMaxDamage = isHorusHeresy
-      ? Math.max(0, parseNumber(diceCount))
+      ? getHh2MaxDamage(baseInputs)
       : Math.max(0, parseNumber(diceCount) * baseMaxMultiple);
     const seriesData = rangeSeries.map((entry) => {
       if (isHorusHeresy) {
-        const maxDamage = Math.max(0, parseNumber(entry.inputs.diceCount));
+        const maxDamage = getHh2MaxDamage(entry.inputs);
         return { name: entry.name, inputs: entry.inputs, maxDamage };
       }
       const compareMultiple = entry.inputs.multipleWoundsEnabled
@@ -445,15 +557,78 @@ export default function ShootingCompareRange({
       const diceCountValue = parseNumber(inputs.diceCount);
       const ballisticValue = parseNumber(inputs.ballisticSkill);
       if (isHorusHeresy) {
+        const strengthValue = parseNumber(inputs.hitStrength);
+        const toughnessValue = parseNumber(inputs.targetToughness);
+        const woundProfile = inputs.targetType === 'living'
+          ? getHh2WoundProfile(strengthValue, toughnessValue)
+          : null;
+        const woundTarget = woundProfile?.target ?? 0;
+        const targetWoundsValue = parseNumber(inputs.targetWounds);
+        const armorSaveValue = parseNumber(inputs.armorSave);
+        const invulnerableValue = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
+        const armorPenetrationValue = inputs.armorPenetration.trim() === ''
+          ? Number.NaN
+          : parseNumber(inputs.armorPenetration);
+        const armorBlocked = Number.isFinite(armorPenetrationValue) &&
+          armorPenetrationValue > 0 &&
+          armorPenetrationValue <= armorSaveValue;
         for (let i = 0; i < iterations; i += 1) {
           let hitSuccesses = 0;
           for (let j = 0; j < diceCountValue; j += 1) {
-            const result = rollHh2Hit(ballisticValue, inputs.rerollHitConfig);
+            const result = rollHh2Hit(ballisticValue, inputs.rerollHitConfig, { nightFighting: inputs.nightFighting });
             if (result.success) {
               hitSuccesses += 1;
             }
           }
-          const bucket = Math.min(hitSuccesses, overallMax);
+          let successfulWounds = hitSuccesses;
+          if (inputs.targetType === 'living') {
+            if (woundProfile?.impossible || woundTarget === 0) {
+              successfulWounds = 0;
+            } else {
+              successfulWounds = 0;
+              for (let k = 0; k < hitSuccesses; k += 1) {
+                const roll = rollDie();
+                if (roll >= woundTarget) {
+                  successfulWounds += 1;
+                }
+              }
+            }
+          }
+          let failedArmorSaves = successfulWounds;
+          if (!armorBlocked && armorSaveValue > 1 && armorSaveValue <= 6) {
+            failedArmorSaves = 0;
+            for (let k = 0; k < successfulWounds; k += 1) {
+              const roll = rollDie();
+              if (roll < armorSaveValue) {
+                failedArmorSaves += 1;
+              }
+            }
+          }
+          let failedInvulnerableSaves = failedArmorSaves;
+          if (invulnerableValue > 1 && invulnerableValue <= 6) {
+            failedInvulnerableSaves = 0;
+            for (let k = 0; k < failedArmorSaves; k += 1) {
+              const roll = rollDie();
+              if (roll < invulnerableValue) {
+                failedInvulnerableSaves += 1;
+              }
+            }
+          }
+          let finalWounds = failedInvulnerableSaves;
+          if (inputs.targetType === 'living') {
+            const instantDeathActive = inputs.instantDeath || strengthValue >= toughnessValue * 2;
+            if (instantDeathActive) {
+              if (inputs.atomanticShield) {
+                finalWounds = 0;
+                for (let k = 0; k < failedInvulnerableSaves; k += 1) {
+                  finalWounds += Math.floor(Math.random() * 3) + 1;
+                }
+              } else if (targetWoundsValue > 0) {
+                finalWounds = failedInvulnerableSaves * targetWoundsValue;
+              }
+            }
+          }
+          const bucket = Math.min(finalWounds, overallMax);
           counts[bucket] += 1;
         }
         return counts.map((count) => count / iterations);
@@ -649,7 +824,19 @@ export default function ShootingCompareRange({
                     Poisoned Attack
                   </label>
                 </OptionGroup>
-              ) : null}
+              ) : (
+                <OptionGroup layout="stack" className="mt-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={nightFighting}
+                      onChange={(e) => onNightFightingChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Night fighting
+                  </label>
+                </OptionGroup>
+              )}
             </SectionBlock>
 
             {!autoHit && !isHorusHeresy ? (
@@ -804,11 +991,144 @@ export default function ShootingCompareRange({
                   </div>
                 </SectionBlock>
               </>
-            ) : null}
+            ) : (
+              <>
+                <SectionBlock title="Target" contentClassName="mt-3">
+                  <div className="flex flex-wrap gap-2">
+                    <ToggleButton
+                      active={targetType === 'living'}
+                      onClick={() => onTargetTypeChange('living')}
+                      size="sm"
+                    >
+                      Living target
+                    </ToggleButton>
+                    <ToggleButton
+                      active={targetType === 'vehicle'}
+                      onClick={() => onTargetTypeChange('vehicle')}
+                      size="sm"
+                    >
+                      Vehicle
+                    </ToggleButton>
+                  </div>
+                </SectionBlock>
+                <SectionBlock title="To wound" contentClassName="mt-3">
+                  {targetType === 'living' ? (
+                    <>
+                      <StatGrid
+                        columns={2}
+                        fields={[
+                          {
+                            id: 'shootingCompareHitStrength',
+                            label: 'Strength',
+                            value: hitStrength,
+                            min: '1',
+                            onChange: onHitStrengthChange,
+                          },
+                          {
+                            id: 'shootingCompareTargetToughness',
+                            label: 'Toughness',
+                            value: targetToughness,
+                            min: '1',
+                            onChange: onTargetToughnessChange,
+                          },
+                          {
+                            id: 'shootingCompareArmorPenetration',
+                            label: 'Armor Penetration',
+                            value: armorPenetration,
+                            min: '0',
+                            placeholder: 'Leave empty if none',
+                            onChange: onArmorPenetrationChange,
+                          },
+                          {
+                            id: 'shootingCompareTargetWounds',
+                            label: 'Target Wounds',
+                            value: targetWounds,
+                            min: '1',
+                            onChange: onTargetWoundsChange,
+                          },
+                        ]}
+                      />
+                      <div className="mt-3 border-2 border-zinc-900 px-4 py-3">
+                        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                          Result needed
+                        </div>
+                        <div className="text-lg font-semibold text-zinc-900">{hh2WoundDisplay.main}</div>
+                        {hh2WoundDisplay.sub ? (
+                          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
+                            {hh2WoundDisplay.sub}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {hh2WoundProfile?.impossible ? (
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                            Impossible to wound: toughness is at least double the strength.
+                          </p>
+                        ) : null}
+                        {isHh2InstantDeath ? (
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-700">
+                            Instant death active.
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
+                      Vehicle wound rules will be added later.
+                    </p>
+                  )}
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={instantDeath}
+                        onChange={(e) => onInstantDeathChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Instant death
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={atomanticShield}
+                        onChange={(e) => onAtomanticShieldChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Atomantic shield
+                    </label>
+                  </div>
+                </SectionBlock>
+                <SectionBlock title="Saves" contentClassName="mt-3">
+                  <StatGrid
+                    columns={2}
+                    fields={[
+                      {
+                        id: 'shootingCompareArmorSave',
+                        label: 'Armor Save (X+)',
+                        value: armorSave,
+                        min: '0',
+                        max: '7',
+                        placeholder: 'Leave empty if none',
+                        onChange: onArmorSaveChange,
+                      },
+                      {
+                        id: 'shootingCompareInvulnerableSave',
+                        label: 'Invulnerable Save (X+)',
+                        value: wardSave,
+                        min: '0',
+                        max: '7',
+                        placeholder: 'Leave empty if none',
+                        onChange: onWardSaveChange,
+                      },
+                    ]}
+                  />
+                </SectionBlock>
+              </>
+            )}
           </div>
           <ActionBar>
             <div className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
-              {isHorusHeresy ? 'Base expected hits' : 'Base final damage'}:{' '}
+              {isHorusHeresy ? 'Base expected damage' : 'Base final damage'}:{' '}
               <span className="font-mono text-zinc-900">{baseResult.toFixed(2)}</span>
             </div>
           </ActionBar>

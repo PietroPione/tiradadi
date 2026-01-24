@@ -7,16 +7,19 @@ export type ProbabilityResults = {
   failedArmorSaves: number;
   failedWardSaves: number;
   finalDamage: number;
+  modelsRemoved?: number;
 };
 
 type ProbabilityResultsCardProps = {
   results: ProbabilityResults;
   poisonedAttack: boolean;
+  wardLabel?: string;
 };
 
 export default function ProbabilityResultsCard({
   results,
   poisonedAttack,
+  wardLabel = 'Ward',
 }: ProbabilityResultsCardProps) {
   return (
     <Card className="mt-5 bg-stone-50 px-4 py-4 sm:px-6 sm:py-5">
@@ -41,9 +44,15 @@ export default function ProbabilityResultsCard({
           <span className="font-mono text-lg text-zinc-900">{results.failedArmorSaves}</span>
         </p>
         <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
-          <span className="text-zinc-600">Failed Ward Saves</span>
+          <span className="text-zinc-600">Failed {wardLabel} Saves</span>
           <span className="font-mono text-lg text-zinc-900">{results.failedWardSaves}</span>
         </p>
+        {typeof results.modelsRemoved === 'number' ? (
+          <p className="flex items-center justify-between border-b-2 border-zinc-900 pb-2 sm:border-b-0 sm:pb-0">
+            <span className="text-zinc-600">Models Removed</span>
+            <span className="font-mono text-lg text-zinc-900">{results.modelsRemoved.toFixed(2)}</span>
+          </p>
+        ) : null}
         <div className="sm:col-span-2">
           <div className="w-full flex items-center justify-between border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
             <div>

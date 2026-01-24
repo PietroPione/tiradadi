@@ -39,6 +39,8 @@ import {
 import {
   getHh2HitProfile,
   getHh2HitSuccessChance,
+  getHh2WoundProfile,
+  getHh2WoundSuccessChance,
   rollHh2Hit,
 } from '@/lib/games/hh2/shooting-utils';
 
@@ -102,12 +104,18 @@ export default function DiceApp() {
   });
   const [shootingPoisonedAttack, setShootingPoisonedAttack] = useState(false);
   const [shootingAutoHit, setShootingAutoHit] = useState(false);
+  const [shootingNightFighting, setShootingNightFighting] = useState(false);
+  const [shootingTargetType, setShootingTargetType] = useState<'living' | 'vehicle'>('living');
+  const [shootingTargetWounds, setShootingTargetWounds] = useState('1');
+  const [shootingInstantDeath, setShootingInstantDeath] = useState(false);
+  const [shootingAtomanticShield, setShootingAtomanticShield] = useState(false);
   const [shootingMultipleWoundsEnabled, setShootingMultipleWoundsEnabled] = useState(false);
   const [shootingMultipleWoundsValue, setShootingMultipleWoundsValue] = useState('');
   const [shootingProbabilityMode, setShootingProbabilityMode] = useState<'single' | 'range' | null>(null);
   const [shootingDiceCount, setShootingDiceCount] = useState('10');
   const [shootingHitStrength, setShootingHitStrength] = useState('3');
   const [shootingTargetToughness, setShootingTargetToughness] = useState('3');
+  const [shootingArmorPenetration, setShootingArmorPenetration] = useState('');
   const [shootingWoundValue, setShootingWoundValue] = useState('4');
   const [shootingArmorSave, setShootingArmorSave] = useState('4');
   const [shootingWardSave, setShootingWardSave] = useState('0');
@@ -504,7 +512,7 @@ export default function DiceApp() {
       return Number.NaN;
     }
     if (gameSystem === 'hh2') {
-      return getHh2HitProfile(parsedBallisticSkill).baseTarget;
+      return getHh2HitProfile(parsedBallisticSkill, { nightFighting: shootingNightFighting }).baseTarget;
     }
     if (shootingAutoHit) {
       return 1;
@@ -797,6 +805,11 @@ export default function DiceApp() {
     const parsedDiceCount = Number.parseInt(shootingDiceCount, 10);
     const parsedBallisticSkill = Number.parseInt(ballisticSkill, 10);
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
+    const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
+    const parsedTargetWounds = Number.parseInt(shootingTargetWounds, 10);
+    const parsedArmorPenetration = shootingArmorPenetration.trim() === ''
+      ? Number.NaN
+      : Number.parseInt(shootingArmorPenetration, 10);
     const parsedWoundValue = Number.parseInt(shootingWoundValue, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
     const parsedWardSave = shootingWardSave.trim() === ''
@@ -817,16 +830,61 @@ export default function DiceApp() {
         setShootingErrorMessage('Devi inserire un risultato di dado');
         return;
       }
-      const hitChance = getHh2HitSuccessChance(parsedBallisticSkill, shootingRerollHit);
+      if (
+        shootingTargetType === 'living' &&
+        (Number.isNaN(parsedHitStrength) ||
+          Number.isNaN(parsedTargetToughness) ||
+          Number.isNaN(parsedTargetWounds) ||
+          parsedTargetWounds <= 0)
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      const hitChance = getHh2HitSuccessChance(parsedBallisticSkill, shootingRerollHit, {
+        nightFighting: shootingNightFighting,
+      });
       const successfulHits = parsedDiceCount * hitChance;
-      const finalDamage = successfulHits;
+      let successfulWounds = successfulHits;
+      if (shootingTargetType === 'living') {
+        const woundChance = getHh2WoundSuccessChance(parsedHitStrength, parsedTargetToughness);
+        successfulWounds = Number.isNaN(woundChance) ? 0 : successfulHits * woundChance;
+      }
+      const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
+        parsedArmorPenetration > 0 &&
+        parsedArmorPenetration <= parsedArmorSave;
+      const armorSaveChance = !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
+        ? (7 - parsedArmorSave) / 6
+        : 0;
+      const invulnerableSaveChance = parsedWardSave > 1 && parsedWardSave <= 6
+        ? (7 - parsedWardSave) / 6
+        : 0;
+      const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
+      const failedInvulnerableSaves = failedArmorSaves * (1 - invulnerableSaveChance);
+      let finalDamage = failedInvulnerableSaves;
+      let modelsRemoved = 0;
+      if (shootingTargetType === 'living') {
+        const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+        if (instantDeathActive) {
+          if (shootingAtomanticShield) {
+            finalDamage = failedInvulnerableSaves * 2;
+            modelsRemoved = finalDamage / parsedTargetWounds;
+          } else {
+            modelsRemoved = failedInvulnerableSaves;
+            finalDamage = modelsRemoved * parsedTargetWounds;
+          }
+        } else {
+          finalDamage = failedInvulnerableSaves;
+          modelsRemoved = finalDamage / parsedTargetWounds;
+        }
+      }
       setShootingProbabilityResults({
         successfulHits: parseFloat(successfulHits.toFixed(2)),
-        successfulWounds: 0,
+        successfulWounds: parseFloat(successfulWounds.toFixed(2)),
         poisonedAutoWounds: 0,
-        failedArmorSaves: 0,
-        failedWardSaves: 0,
+        failedArmorSaves: parseFloat(failedArmorSaves.toFixed(2)),
+        failedWardSaves: parseFloat(failedInvulnerableSaves.toFixed(2)),
         finalDamage: parseFloat(finalDamage.toFixed(2)),
+        modelsRemoved: parseFloat(modelsRemoved.toFixed(2)),
       });
       setShootingDebug({
         hitInitialRolls: [],
@@ -918,6 +976,10 @@ export default function DiceApp() {
     const parsedBallisticSkill = Number.parseInt(ballisticSkill, 10);
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
+    const parsedTargetWounds = Number.parseInt(shootingTargetWounds, 10);
+    const parsedArmorPenetration = shootingArmorPenetration.trim() === ''
+      ? Number.NaN
+      : Number.parseInt(shootingArmorPenetration, 10);
     const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
     const parsedWardSave = shootingWardSave.trim() === ''
       ? 0
@@ -937,11 +999,23 @@ export default function DiceApp() {
         setShootingErrorMessage('Devi inserire un risultato di dado');
         return;
       }
+      if (
+        shootingTargetType === 'living' &&
+        (Number.isNaN(parsedHitStrength) ||
+          Number.isNaN(parsedTargetToughness) ||
+          Number.isNaN(parsedTargetWounds) ||
+          parsedTargetWounds <= 0)
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
       const hitInitialRolls: number[] = [];
       const hitRerollRolls: number[] = [];
       let hitSuccesses = 0;
       for (let i = 0; i < parsedDiceCount; i += 1) {
-        const result = rollHh2Hit(parsedBallisticSkill, shootingRerollHit);
+        const result = rollHh2Hit(parsedBallisticSkill, shootingRerollHit, {
+          nightFighting: shootingNightFighting,
+        });
         hitInitialRolls.push(result.roll);
         if (result.reroll !== null) {
           hitRerollRolls.push(result.reroll);
@@ -950,18 +1024,77 @@ export default function DiceApp() {
           hitSuccesses += 1;
         }
       }
+      let woundSuccesses = hitSuccesses;
+      const woundInitialRolls: number[] = [];
+      if (shootingTargetType === 'living') {
+        const woundProfile = getHh2WoundProfile(parsedHitStrength, parsedTargetToughness);
+        if (woundProfile.impossible || woundProfile.target === null) {
+          woundSuccesses = 0;
+        } else {
+          woundSuccesses = 0;
+          for (let i = 0; i < hitSuccesses; i += 1) {
+            const roll = Math.floor(Math.random() * 6) + 1;
+            woundInitialRolls.push(roll);
+            if (roll >= woundProfile.target) {
+              woundSuccesses += 1;
+            }
+          }
+        }
+      }
+      const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
+        parsedArmorPenetration > 0 &&
+        parsedArmorPenetration <= parsedArmorSave;
+      let failedArmorSaves = woundSuccesses;
+      if (!armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6) {
+        for (let i = 0; i < woundSuccesses; i += 1) {
+          const roll = Math.floor(Math.random() * 6) + 1;
+          if (roll >= parsedArmorSave) {
+            failedArmorSaves -= 1;
+          }
+        }
+      }
+      let failedInvulnerableSaves = failedArmorSaves;
+      if (parsedWardSave > 1 && parsedWardSave <= 6) {
+        for (let i = 0; i < failedArmorSaves; i += 1) {
+          const roll = Math.floor(Math.random() * 6) + 1;
+          if (roll >= parsedWardSave) {
+            failedInvulnerableSaves -= 1;
+          }
+        }
+      }
+      let finalDamage = failedInvulnerableSaves;
+      let modelsRemoved = 0;
+      if (shootingTargetType === 'living') {
+        const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+        if (instantDeathActive) {
+          if (shootingAtomanticShield) {
+            finalDamage = 0;
+            for (let i = 0; i < failedInvulnerableSaves; i += 1) {
+              finalDamage += Math.floor(Math.random() * 3) + 1;
+            }
+            modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
+          } else {
+            modelsRemoved = failedInvulnerableSaves;
+            finalDamage = modelsRemoved * parsedTargetWounds;
+          }
+        } else {
+          finalDamage = failedInvulnerableSaves;
+          modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
+        }
+      }
       setShootingThrowResults({
         successfulHits: hitSuccesses,
-        successfulWounds: 0,
+        successfulWounds: woundSuccesses,
         poisonedAutoWounds: 0,
-        failedArmorSaves: 0,
-        failedWardSaves: 0,
-        finalDamage: hitSuccesses,
+        failedArmorSaves,
+        failedWardSaves: failedInvulnerableSaves,
+        finalDamage,
+        modelsRemoved,
       });
       setShootingDebug({
         hitInitialRolls,
         hitRerollRolls,
-        woundInitialRolls: [],
+        woundInitialRolls,
         woundRerollRolls: [],
         armorInitialRolls: [],
         armorRerollRolls: [],
@@ -1392,12 +1525,18 @@ export default function DiceApp() {
                 mode={appMode}
                 probabilityMode={shootingProbabilityMode}
                 ballisticSkill={ballisticSkill}
+                nightFighting={shootingNightFighting}
                 poisonedAttack={shootingPoisonedAttack}
                 autoHit={shootingAutoHit}
+                targetType={shootingTargetType}
+                targetWounds={shootingTargetWounds}
+                instantDeath={shootingInstantDeath}
+                atomanticShield={shootingAtomanticShield}
                 multipleWoundsEnabled={shootingMultipleWoundsEnabled}
                 multipleWoundsValue={shootingMultipleWoundsValue}
                 hitStrength={shootingHitStrength}
                 targetToughness={shootingTargetToughness}
+                armorPenetration={shootingArmorPenetration}
                 woundValue={shootingWoundValue}
                 armorSave={shootingArmorSave}
                 wardSave={shootingWardSave}
@@ -1416,12 +1555,18 @@ export default function DiceApp() {
                 onDiceCountChange={setShootingDiceCount}
                 onProbabilityModeChange={setProbabilityModeAll}
                 onBallisticSkillChange={setBallisticSkill}
+                onNightFightingChange={setShootingNightFighting}
                 onPoisonedAttackChange={setShootingPoisonedAttack}
                 onAutoHitChange={handleShootingAutoHitChange}
+                onTargetTypeChange={setShootingTargetType}
+                onTargetWoundsChange={setShootingTargetWounds}
+                onInstantDeathChange={setShootingInstantDeath}
+                onAtomanticShieldChange={setShootingAtomanticShield}
                 onMultipleWoundsChange={setShootingMultipleWoundsEnabled}
                 onMultipleWoundsValueChange={setShootingMultipleWoundsValue}
                 onHitStrengthChange={setShootingHitStrength}
                 onTargetToughnessChange={setShootingTargetToughness}
+                onArmorPenetrationChange={setShootingArmorPenetration}
                 onWoundValueChange={setShootingWoundValue}
                 onArmorSaveChange={setShootingArmorSave}
                 onWardSaveChange={setShootingWardSave}
