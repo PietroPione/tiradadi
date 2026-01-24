@@ -9,6 +9,7 @@ import ShootingPhaseCalculator from '@/components/calculator/ShootingPhaseCalcul
 import ThrowDiceCalculator from '@/components/calculator/ThrowDiceCalculator';
 import ChallengeSimulator from '@/components/calculator/ChallengeSimulator';
 import CombatCompareRange from '@/components/calculator/CombatCompareRange';
+import type { ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
 import type { RerollConfig } from '@/components/calculator/ReRollOptions';
 import PhaseSelector from '@/components/navigation/PhaseSelector';
 import SystemSelector from '@/components/navigation/SystemSelector';
@@ -119,7 +120,7 @@ export default function DiceApp() {
   const [shootingWoundValue, setShootingWoundValue] = useState('4');
   const [shootingArmorSave, setShootingArmorSave] = useState('4');
   const [shootingWardSave, setShootingWardSave] = useState('0');
-  const [shootingProbabilityResults, setShootingProbabilityResults] = useState({
+  const [shootingProbabilityResults, setShootingProbabilityResults] = useState<ProbabilityResults>({
     successfulHits: 0,
     successfulWounds: 0,
     poisonedAutoWounds: 0,
@@ -127,7 +128,7 @@ export default function DiceApp() {
     failedWardSaves: 0,
     finalDamage: 0,
   });
-  const [shootingThrowResults, setShootingThrowResults] = useState({
+  const [shootingThrowResults, setShootingThrowResults] = useState<ProbabilityResults>({
     successfulHits: 0,
     successfulWounds: 0,
     poisonedAutoWounds: 0,
