@@ -103,7 +103,7 @@ export const calculateAverages = ({
   const woundChance = getFaceProbabilitiesWithReroll(woundValue, rerollWoundConfig).successChance;
   const armorSaveModifier = hitStrength - 3;
   const effectiveArmorSave = armorSave + armorSaveModifier;
-  const armorSaveChance = effectiveArmorSave > 1
+  const armorSaveChance = armorSave > 0 && effectiveArmorSave > 1
     ? getFaceProbabilitiesWithReroll(effectiveArmorSave, rerollArmorConfig).successChance
     : 0;
   const wardSaveChance = wardSave > 1

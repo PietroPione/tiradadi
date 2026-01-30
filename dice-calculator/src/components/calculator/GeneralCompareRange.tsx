@@ -25,10 +25,8 @@ type RangeFieldValues = {
 type CompareConfig = GeneralInputs & {
   id: string;
   label: string;
-  compareMode: 'single' | 'range';
   singleField: keyof RangeFieldValues;
   compareValues: string;
-  compareRangeValues: string;
 };
 
 type GeneralCompareRangeProps = GeneralInputs & {
@@ -52,10 +50,8 @@ const buildCompareConfig = (base: GeneralInputs, index: number): CompareConfig =
   ...base,
   id: `compare-${Date.now()}-${index}`,
   label: `Compare ${index + 1}`,
-  compareMode: 'range',
   singleField: 'targetValue',
   compareValues: '',
-  compareRangeValues: '',
 });
 
 const calculateAverageOutput = (inputs: GeneralInputs) => {
@@ -112,41 +108,13 @@ export default function GeneralCompareRange({
       .map((value) => Number.parseInt(value.trim(), 10))
       .filter((value) => Number.isFinite(value));
   };
-  const parseRangeValues = (input: string) => {
-    const trimmed = input.trim().replace(/[–—]/g, '-');
-    if (!trimmed) {
-      return [];
-    }
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-').map((value) => value.trim()).filter(Boolean);
-      if (parts.length !== 2) {
-        return [];
-      }
-      const [startRaw, endRaw] = parts;
-      const start = Number.parseInt(startRaw, 10);
-      const end = Number.parseInt(endRaw, 10);
-      if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        return [];
-      }
-      const min = Math.min(start, end);
-      const max = Math.max(start, end);
-      return Array.from({ length: max - min + 1 }, (_, index) => min + index);
-    }
-    return parseCompareValues(trimmed);
-  };
-  const hasInvalidCompareValues = compareItems.some((item) => (
-    item.compareMode === 'single'
-      ? parseCompareValues(item.compareValues).length === 0
-      : parseRangeValues(item.compareRangeValues).length === 0
-  ));
+  const hasInvalidCompareValues = compareItems.some((item) => parseCompareValues(item.compareValues).length === 0);
   const baseResult = calculateAverageOutput(baseInputs);
 
   const buildSeries = () => {
     const rangeSeries = compareItems.flatMap((item) => {
       const field = item.singleField;
-      const rangeValues = item.compareMode === 'single'
-        ? parseCompareValues(item.compareValues)
-        : parseRangeValues(item.compareRangeValues);
+      const rangeValues = parseCompareValues(item.compareValues);
       return rangeValues.map((value) => {
         const inputs: GeneralInputs = {
           diceCount: item.diceCount,
@@ -345,49 +313,20 @@ export default function GeneralCompareRange({
                   ))}
                 </select>
                 <div className="mt-3">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
-                  <select
-                    className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                    value={item.compareMode}
-                    onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
-                  >
-                    <option value="single">Compare single value</option>
-                    <option value="range">Compare</option>
-                  </select>
-                </div>
-                {item.compareMode === 'single' ? (
-                  <>
-                    <InputField
-                      id={`${item.id}-compare-value`}
-                      label="Compare values (comma separated)"
-                      value={item.compareValues}
-                      type="text"
-                      placeholder="e.g. 3,4,5"
-                      onChange={(value) => updateCompare(item.id, { compareValues: value })}
-                    />
-                    {!item.compareValues.trim() ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                        Insert at least one value to compare.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
                   <InputField
-                    id={`${item.id}-compare-range`}
-                    label="Range values"
-                    value={item.compareRangeValues}
+                    id={`${item.id}-compare-value`}
+                    label="Compare values (comma separated)"
+                    value={item.compareValues}
                     type="text"
-                    placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
-                    onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
+                    placeholder="e.g. 3,4,5"
+                    onChange={(value) => updateCompare(item.id, { compareValues: value })}
                   />
-                )}
-                {item.compareMode === 'range'
-                  && item.compareRangeValues.trim()
-                  && parseRangeValues(item.compareRangeValues).length === 0 ? (
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                    Invalid range format. Use 2-4 or 2,3,4.
-                  </p>
-                ) : null}
+                  {!item.compareValues.trim() ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                      Insert at least one value to compare.
+                    </p>
+                  ) : null}
+                </div>
               </SectionBlock>
 
             </div>

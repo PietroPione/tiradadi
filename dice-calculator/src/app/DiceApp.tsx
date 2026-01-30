@@ -9,6 +9,7 @@ import ShootingPhaseCalculator from '@/components/calculator/ShootingPhaseCalcul
 import ThrowDiceCalculator from '@/components/calculator/ThrowDiceCalculator';
 import ChallengeSimulator from '@/components/calculator/ChallengeSimulator';
 import CombatCompareRange from '@/components/calculator/CombatCompareRange';
+import Hh2CombatPhaseCalculator from '@/components/calculator/Hh2CombatPhaseCalculator';
 import type { ProbabilityResults } from '@/components/calculator/ProbabilityResultsCard';
 import type { RerollConfig } from '@/components/calculator/ReRollOptions';
 import PhaseSelector from '@/components/navigation/PhaseSelector';
@@ -41,7 +42,6 @@ import {
   getHh2HitProfile,
   getHh2HitSuccessChance,
   getHh2WoundProfile,
-  getHh2WoundSuccessChance,
   rollHh2Hit,
 } from '@/lib/games/hh2/shooting-utils';
 
@@ -108,10 +108,16 @@ export default function DiceApp() {
   const [shootingNightFighting, setShootingNightFighting] = useState(false);
   const [shootingTargetType, setShootingTargetType] = useState<'living' | 'vehicle'>('living');
   const [shootingTargetWounds, setShootingTargetWounds] = useState('1');
+  const [shootingTargetArmorValue, setShootingTargetArmorValue] = useState('12');
+  const [shootingLance, setShootingLance] = useState(false);
+  const [shootingMelta, setShootingMelta] = useState(false);
   const [shootingInstantDeath, setShootingInstantDeath] = useState(false);
   const [shootingAtomanticShield, setShootingAtomanticShield] = useState(false);
   const [shootingMultipleWoundsEnabled, setShootingMultipleWoundsEnabled] = useState(false);
   const [shootingMultipleWoundsValue, setShootingMultipleWoundsValue] = useState('');
+  const [shootingDamageMitigationRoll, setShootingDamageMitigationRoll] = useState('');
+  const [shootingDamageMitigationType, setShootingDamageMitigationType] = useState<'feelNoPain' | 'shrouded' | 'other'>('feelNoPain');
+  const [shootingNoCover, setShootingNoCover] = useState(false);
   const [shootingProbabilityMode, setShootingProbabilityMode] = useState<'single' | 'range' | null>(null);
   const [shootingDiceCount, setShootingDiceCount] = useState('10');
   const [shootingHitStrength, setShootingHitStrength] = useState('3');
@@ -120,6 +126,13 @@ export default function DiceApp() {
   const [shootingWoundValue, setShootingWoundValue] = useState('4');
   const [shootingArmorSave, setShootingArmorSave] = useState('4');
   const [shootingWardSave, setShootingWardSave] = useState('0');
+  const [shootingDeflagrate, setShootingDeflagrate] = useState(false);
+  const [shootingBreachingEnabled, setShootingBreachingEnabled] = useState(false);
+  const [shootingBreachingValue, setShootingBreachingValue] = useState('');
+  const [shootingRendingEnabled, setShootingRendingEnabled] = useState(false);
+  const [shootingRendingValue, setShootingRendingValue] = useState('');
+  const [shootingMurderousEnabled, setShootingMurderousEnabled] = useState(false);
+  const [shootingMurderousValue, setShootingMurderousValue] = useState('');
   const [shootingProbabilityResults, setShootingProbabilityResults] = useState<ProbabilityResults>({
     successfulHits: 0,
     successfulWounds: 0,
@@ -158,6 +171,12 @@ export default function DiceApp() {
     specificValues: '',
   });
   const [shootingRerollWard, setShootingRerollWard] = useState<RerollState>({
+    enabled: false,
+    mode: 'failed',
+    scope: 'all',
+    specificValues: '',
+  });
+  const [shootingRerollMitigation, setShootingRerollMitigation] = useState<RerollState>({
     enabled: false,
     mode: 'failed',
     scope: 'all',
@@ -297,6 +316,17 @@ export default function DiceApp() {
     scope: 'all',
     specificValues: '',
   });
+  const [combatTargetType, setCombatTargetType] = useState<'living' | 'vehicle'>('living');
+  const [combatTargetWounds, setCombatTargetWounds] = useState('1');
+  const [combatTargetArmorValue, setCombatTargetArmorValue] = useState('12');
+  const [combatInstantDeath, setCombatInstantDeath] = useState(false);
+  const [combatDeflagrate, setCombatDeflagrate] = useState(false);
+  const [combatBreachingEnabled, setCombatBreachingEnabled] = useState(false);
+  const [combatBreachingValue, setCombatBreachingValue] = useState('');
+  const [combatRendingEnabled, setCombatRendingEnabled] = useState(false);
+  const [combatRendingValue, setCombatRendingValue] = useState('');
+  const [combatMurderousEnabled, setCombatMurderousEnabled] = useState(false);
+  const [combatMurderousValue, setCombatMurderousValue] = useState('');
   const [generalDebug, setGeneralDebug] = useState({
     initialRolls: [] as number[],
     rerollRolls: [] as number[],
@@ -312,11 +342,20 @@ export default function DiceApp() {
     hitRerollRolls: [] as number[],
     woundInitialRolls: [] as number[],
     woundRerollRolls: [] as number[],
+    penetrationTotals: [] as number[],
+    penetrationMaxDice: [] as number[],
+    rendingBonusRolls: [] as number[],
     armorInitialRolls: [] as number[],
     armorRerollRolls: [] as number[],
     wardInitialRolls: [] as number[],
     wardRerollRolls: [] as number[],
     multipleWoundsRolls: [] as number[],
+    penetrationDamageRolls: [] as number[],
+    deflagrateHits: 0,
+    deflagrateExtraWounds: 0,
+    rendingWounds: 0,
+    breachingWounds: 0,
+    murderousWounds: 0,
   });
 
   const [results, setResults] = useState({
@@ -340,7 +379,7 @@ export default function DiceApp() {
   const [throwDebug, setThrowDebug] = useState({
     hitTarget: 0,
     woundTarget: 0,
-    effectiveArmorSave: 0,
+    effectiveArmorSave: null as number | null,
     poisonedAutoWounds: 0,
     nonPoisonHits: 0,
     predatoryCount: 0,
@@ -541,6 +580,178 @@ export default function DiceApp() {
     if (value) {
       setShootingPoisonedAttack(false);
     }
+  };
+
+  const parseSpecificValuesWithMax = (input: string, maxValue: number) => {
+    return input
+      .split(',')
+      .map((value) => Number.parseInt(value.trim(), 10))
+      .filter((value) => Number.isFinite(value) && value >= 1 && value <= maxValue);
+  };
+
+  const getDiceDistribution = (diceCountValue: 1 | 2) => {
+    const distribution: Record<number, number> = {};
+    if (diceCountValue === 1) {
+      for (let value = 1; value <= 6; value += 1) {
+        distribution[value] = 1 / 6;
+      }
+      return distribution;
+    }
+    for (let dieA = 1; dieA <= 6; dieA += 1) {
+      for (let dieB = 1; dieB <= 6; dieB += 1) {
+        const total = dieA + dieB;
+        distribution[total] = (distribution[total] ?? 0) + 1 / 36;
+      }
+    }
+    return distribution;
+  };
+
+  const getPenetrationRollOutcomes = (diceCountValue: 1 | 2) => {
+    const outcomes: { roll: number; maxDie: number; chance: number }[] = [];
+    if (diceCountValue === 1) {
+      for (let roll = 1; roll <= 6; roll += 1) {
+        outcomes.push({ roll, maxDie: roll, chance: 1 / 6 });
+      }
+      return outcomes;
+    }
+    for (let dieA = 1; dieA <= 6; dieA += 1) {
+      for (let dieB = 1; dieB <= 6; dieB += 1) {
+        outcomes.push({
+          roll: dieA + dieB,
+          maxDie: Math.max(dieA, dieB),
+          chance: 1 / 36,
+        });
+      }
+    }
+    return outcomes;
+  };
+
+  const getPenetrationTotalDistribution = (
+    strengthValue: number,
+    armorValue: number,
+    rerollConfig: RerollState,
+    diceCountValue: 1 | 2,
+    rendingValue: number | null,
+  ) => {
+    const maxRoll = diceCountValue === 2 ? 12 : 6;
+    const specificValues = new Set(parseSpecificValuesWithMax(rerollConfig.specificValues, maxRoll));
+    const baseOutcomes = getPenetrationRollOutcomes(diceCountValue);
+    const baseDistribution: Record<number, number> = {};
+    const expandedOutcomes: { roll: number; total: number; chance: number; success: boolean }[] = [];
+
+    baseOutcomes.forEach((outcome) => {
+      const rendingTriggered = rendingValue !== null && outcome.maxDie >= rendingValue;
+      if (rendingTriggered) {
+        for (let bonus = 1; bonus <= 3; bonus += 1) {
+          const total = outcome.roll + strengthValue + bonus;
+          const chance = outcome.chance / 3;
+          const success = total >= armorValue;
+          expandedOutcomes.push({ roll: outcome.roll, total, chance, success });
+          baseDistribution[total] = (baseDistribution[total] ?? 0) + chance;
+        }
+      } else {
+        const total = outcome.roll + strengthValue;
+        const chance = outcome.chance;
+        const success = total >= armorValue;
+        expandedOutcomes.push({ roll: outcome.roll, total, chance, success });
+        baseDistribution[total] = (baseDistribution[total] ?? 0) + chance;
+      }
+    });
+
+    if (!rerollConfig.enabled) {
+      return baseDistribution;
+    }
+
+    const finalDistribution: Record<number, number> = {};
+    expandedOutcomes.forEach((outcome) => {
+      if (shouldRerollValue(outcome.roll, outcome.success, rerollConfig, specificValues)) {
+        Object.entries(baseDistribution).forEach(([totalKey, chance]) => {
+          const totalValue = Number.parseInt(totalKey, 10);
+          finalDistribution[totalValue] = (finalDistribution[totalValue] ?? 0) + outcome.chance * chance;
+        });
+      } else {
+        finalDistribution[outcome.total] = (finalDistribution[outcome.total] ?? 0) + outcome.chance;
+      }
+    });
+
+    return finalDistribution;
+  };
+
+  const getPenetrationChances = (
+    strengthValue: number,
+    armorValue: number,
+    rerollConfig: RerollState,
+    meltaEnabled: boolean,
+    rendingValue: number | null = null,
+  ) => {
+    const diceCountValue = meltaEnabled ? 2 : 1;
+    const distribution = getPenetrationTotalDistribution(
+      strengthValue,
+      armorValue,
+      rerollConfig,
+      diceCountValue,
+      rendingValue,
+    );
+    const glancingChance = distribution[armorValue] ?? 0;
+    let penetratingChance = 0;
+    Object.entries(distribution).forEach(([totalKey, chance]) => {
+      if (Number.parseInt(totalKey, 10) > armorValue) {
+        penetratingChance += chance;
+      }
+    });
+    return { glancingChance, penetratingChance };
+  };
+
+  const getWoundCategoryChances = (
+    woundTarget: number,
+    rerollConfig: RerollState,
+    options: {
+      breachingValue: number | null;
+      rendingValue: number | null;
+      murderousValue: number | null;
+    },
+  ) => {
+    if (Number.isNaN(woundTarget) || woundTarget <= 0) {
+      return {
+        normalChance: 0,
+        normalAp2Chance: 0,
+        instantChance: 0,
+        instantAp2Chance: 0,
+      };
+    }
+    const probabilities = getFaceProbabilitiesWithReroll(woundTarget, rerollConfig).probabilities;
+    let normalChance = 0;
+    let normalAp2Chance = 0;
+    let instantChance = 0;
+    let instantAp2Chance = 0;
+    for (let roll = 1; roll <= 6; roll += 1) {
+      const chance = probabilities[roll] ?? 0;
+      const isRending = options.rendingValue !== null && roll >= options.rendingValue;
+      const isSuccess = isRending || roll >= woundTarget;
+      if (!isSuccess) {
+        continue;
+      }
+      const isBreaching = options.breachingValue !== null && roll >= options.breachingValue;
+      const isAp2 = isRending || isBreaching;
+      const isInstant = options.murderousValue !== null && roll >= options.murderousValue;
+      if (isInstant) {
+        if (isAp2) {
+          instantAp2Chance += chance;
+        } else {
+          instantChance += chance;
+        }
+      } else if (isAp2) {
+        normalAp2Chance += chance;
+      } else {
+        normalChance += chance;
+      }
+    }
+    return {
+      normalChance,
+      normalAp2Chance,
+      instantChance,
+      instantAp2Chance,
+    };
   };
 
   const handleMoraleRoll = () => {
@@ -808,14 +1019,22 @@ export default function DiceApp() {
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
     const parsedTargetWounds = Number.parseInt(shootingTargetWounds, 10);
+    const parsedTargetArmorValue = shootingTargetArmorValue.trim() === ''
+      ? 0
+      : Number.parseInt(shootingTargetArmorValue, 10);
     const parsedArmorPenetration = shootingArmorPenetration.trim() === ''
       ? Number.NaN
       : Number.parseInt(shootingArmorPenetration, 10);
     const parsedWoundValue = Number.parseInt(shootingWoundValue, 10);
-    const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
+    const parsedArmorSave = shootingArmorSave.trim() === ''
+      ? 0
+      : Number.parseInt(shootingArmorSave, 10);
     const parsedWardSave = shootingWardSave.trim() === ''
       ? 0
       : Number.parseInt(shootingWardSave, 10);
+    const parsedMitigationRoll = shootingDamageMitigationRoll.trim() === ''
+      ? 0
+      : Number.parseInt(shootingDamageMitigationRoll, 10);
     const resultNeeded = getShootingResultNeeded();
     const parsedMultipleWounds = shootingMultipleWoundsEnabled
       ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
@@ -841,41 +1060,242 @@ export default function DiceApp() {
         setShootingErrorMessage('Devi inserire un risultato di dado');
         return;
       }
+      if (
+        shootingTargetType === 'vehicle' &&
+        (Number.isNaN(parsedHitStrength) ||
+          Number.isNaN(parsedTargetArmorValue))
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      if (
+        shootingTargetType === 'vehicle' &&
+        (Number.isNaN(parsedHitStrength) ||
+          Number.isNaN(parsedTargetArmorValue))
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
       const hitChance = getHh2HitSuccessChance(parsedBallisticSkill, shootingRerollHit, {
         nightFighting: shootingNightFighting,
       });
       const successfulHits = parsedDiceCount * hitChance;
-      let successfulWounds = successfulHits;
-      if (shootingTargetType === 'living') {
-        const woundChance = getHh2WoundSuccessChance(parsedHitStrength, parsedTargetToughness);
-        successfulWounds = Number.isNaN(woundChance) ? 0 : successfulHits * woundChance;
+      if (shootingTargetType === 'vehicle') {
+        const rendingValue = shootingRendingEnabled
+          ? Number.parseInt(shootingRendingValue, 10)
+          : null;
+        if (shootingRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) {
+          setShootingErrorMessage('Devi inserire un risultato di dado');
+          return;
+        }
+        const effectiveArmorValue = shootingLance
+          ? Math.min(parsedTargetArmorValue, 12)
+          : parsedTargetArmorValue;
+        const { glancingChance, penetratingChance } = getPenetrationChances(
+          parsedHitStrength,
+          effectiveArmorValue,
+          shootingRerollWound,
+          shootingMelta,
+          shootingRendingEnabled ? rendingValue : null,
+        );
+        const glancingHits = successfulHits * glancingChance;
+        const penetratingHits = successfulHits * penetratingChance;
+        const penetrationModifier = parsedArmorPenetration === 1
+          ? 2
+          : parsedArmorPenetration === 2
+            ? 1
+            : 0;
+        let crewShaken = 0;
+        let crewStunned = 0;
+        let weaponDestroyed = 0;
+        let immobilised = 0;
+        let explodes = 0;
+        for (let roll = 1; roll <= 6; roll += 1) {
+          const total = roll + penetrationModifier;
+          const chance = 1 / 6;
+          if (total <= 3) {
+            crewShaken += chance;
+          } else if (total === 4) {
+            crewStunned += chance;
+          } else if (total === 5) {
+            weaponDestroyed += chance;
+          } else if (total === 6) {
+            immobilised += chance;
+          } else {
+            explodes += chance;
+          }
+        }
+        setShootingProbabilityResults({
+          successfulHits: parseFloat(successfulHits.toFixed(2)),
+          successfulWounds: parseFloat((glancingHits + penetratingHits).toFixed(2)),
+          poisonedAutoWounds: 0,
+          failedArmorSaves: 0,
+          failedWardSaves: 0,
+          finalDamage: parseFloat((glancingHits + penetratingHits).toFixed(2)),
+          glancingHits: parseFloat(glancingHits.toFixed(2)),
+          penetratingHits: parseFloat(penetratingHits.toFixed(2)),
+          crewShaken: parseFloat((penetratingHits * crewShaken).toFixed(2)),
+          crewStunned: parseFloat((penetratingHits * crewStunned).toFixed(2)),
+          weaponDestroyed: parseFloat((penetratingHits * weaponDestroyed).toFixed(2)),
+          immobilised: parseFloat((penetratingHits * immobilised).toFixed(2)),
+          explodes: parseFloat((penetratingHits * explodes).toFixed(2)),
+        });
+        setShootingDebug({
+          hitInitialRolls: [],
+          hitRerollRolls: [],
+          woundInitialRolls: [],
+          woundRerollRolls: [],
+          penetrationTotals: [],
+          penetrationMaxDice: [],
+          rendingBonusRolls: [],
+          armorInitialRolls: [],
+          armorRerollRolls: [],
+          wardInitialRolls: [],
+          wardRerollRolls: [],
+          multipleWoundsRolls: [],
+          penetrationDamageRolls: [],
+          deflagrateHits: 0,
+          deflagrateExtraWounds: 0,
+          rendingWounds: 0,
+          breachingWounds: 0,
+          murderousWounds: 0,
+        });
+        setHasShootingProbabilityResults(true);
+        return;
       }
+      const breachingValue = shootingBreachingEnabled
+        ? Number.parseInt(shootingBreachingValue, 10)
+        : null;
+      const rendingValue = shootingRendingEnabled
+        ? Number.parseInt(shootingRendingValue, 10)
+        : null;
+      const murderousValue = shootingMurderousEnabled
+        ? Number.parseInt(shootingMurderousValue, 10)
+        : null;
+      if (
+        (shootingBreachingEnabled && (!Number.isFinite(breachingValue) || breachingValue! < 1 || breachingValue! > 6)) ||
+        (shootingRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) ||
+        (shootingMurderousEnabled && (!Number.isFinite(murderousValue) || murderousValue! < 1 || murderousValue! > 6))
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      const woundProfile = getHh2WoundProfile(parsedHitStrength, parsedTargetToughness);
+      const woundTarget = woundProfile.target ?? 0;
+      const woundChances = woundProfile.impossible || woundTarget === 0
+        ? { normalChance: 0, normalAp2Chance: 0, instantChance: 0, instantAp2Chance: 0 }
+        : getWoundCategoryChances(woundTarget, shootingRerollWound, {
+          breachingValue,
+          rendingValue,
+          murderousValue,
+        });
+      const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+      const effectiveChances = instantDeathActive
+        ? {
+          normalChance: 0,
+          normalAp2Chance: 0,
+          instantChance: woundChances.normalChance + woundChances.instantChance,
+          instantAp2Chance: woundChances.normalAp2Chance + woundChances.instantAp2Chance,
+        }
+        : woundChances;
+      const normalWounds = successfulHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+      const successfulWounds = successfulHits * (
+        effectiveChances.normalChance
+        + effectiveChances.normalAp2Chance
+        + effectiveChances.instantChance
+        + effectiveChances.instantAp2Chance
+      );
       const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
         parsedArmorPenetration > 0 &&
         parsedArmorPenetration <= parsedArmorSave;
-      const armorSaveChance = !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
-        ? (7 - parsedArmorSave) / 6
+      const hasArmorSave = shootingArmorSave.trim() !== '';
+      const armorSaveChance = hasArmorSave && !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
+        ? getFaceProbabilitiesWithReroll(parsedArmorSave, shootingRerollArmor).successChance
         : 0;
+      const mitigationAllowed = parsedMitigationRoll > 1 &&
+        parsedMitigationRoll <= 6 &&
+        !(shootingDamageMitigationType === 'feelNoPain' && instantDeathActive) &&
+        !(shootingDamageMitigationType === 'shrouded' && shootingNoCover);
       const invulnerableSaveChance = parsedWardSave > 1 && parsedWardSave <= 6
-        ? (7 - parsedWardSave) / 6
+        ? getFaceProbabilitiesWithReroll(parsedWardSave, shootingRerollWard).successChance
         : 0;
-      const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
-      const failedInvulnerableSaves = failedArmorSaves * (1 - invulnerableSaveChance);
+      const mitigationSaveChance = mitigationAllowed
+        ? getFaceProbabilitiesWithReroll(parsedMitigationRoll, shootingRerollMitigation).successChance
+        : 0;
+      const effectiveSaveChance = Math.max(invulnerableSaveChance, mitigationSaveChance);
+      const normalAp2Wounds = successfulHits * effectiveChances.normalAp2Chance;
+      const instantAp2Wounds = successfulHits * effectiveChances.instantAp2Chance;
+      const instantWounds = successfulHits * effectiveChances.instantChance;
+      const failedArmorNormal = normalWounds * (1 - armorSaveChance);
+      const failedArmorNormalAp2 = normalAp2Wounds;
+      const failedArmorInstant = instantWounds * (1 - armorSaveChance);
+      const failedArmorInstantAp2 = instantAp2Wounds;
+      const failedArmorSaves = failedArmorNormal + failedArmorNormalAp2 + failedArmorInstant + failedArmorInstantAp2;
+      const failedInvulnerableSaves = failedArmorSaves * (1 - effectiveSaveChance);
+      const failedInstantSaves = (failedArmorInstant + failedArmorInstantAp2) * (1 - effectiveSaveChance);
+      const failedNormalSaves = (failedArmorNormal + failedArmorNormalAp2) * (1 - effectiveSaveChance);
       let finalDamage = failedInvulnerableSaves;
       let modelsRemoved = 0;
-      if (shootingTargetType === 'living') {
-        const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
-        if (instantDeathActive) {
+      let deflagrateHits = 0;
+      let deflagrateExtraWounds = 0;
+      let rendingWounds = 0;
+      let breachingWounds = 0;
+      let murderousWounds = 0;
+      const woundProbabilities = woundProfile.impossible || woundTarget === 0
+        ? null
+        : getFaceProbabilitiesWithReroll(woundTarget, shootingRerollWound).probabilities;
+      if (woundProbabilities) {
+        for (let roll = 1; roll <= 6; roll += 1) {
+          const chance = woundProbabilities[roll] ?? 0;
+          const isRending = shootingRendingEnabled && rendingValue !== null && roll >= rendingValue;
+          const isSuccess = isRending || roll >= woundTarget;
+          if (!isSuccess) {
+            continue;
+          }
+          if (isRending) {
+            rendingWounds += successfulHits * chance;
+          }
+          if (shootingBreachingEnabled && breachingValue !== null && roll >= breachingValue) {
+            breachingWounds += successfulHits * chance;
+          }
+          if (shootingMurderousEnabled && murderousValue !== null && roll >= murderousValue) {
+            murderousWounds += successfulHits * chance;
+          }
+        }
+      }
+      if (instantDeathActive || shootingMurderousEnabled) {
+        if (shootingAtomanticShield) {
+          finalDamage = failedNormalSaves + failedInstantSaves * 2;
+          modelsRemoved = finalDamage / parsedTargetWounds;
+        } else {
+          finalDamage = failedNormalSaves + failedInstantSaves * parsedTargetWounds;
+          modelsRemoved = failedNormalSaves / parsedTargetWounds + failedInstantSaves;
+        }
+      } else {
+        finalDamage = failedInvulnerableSaves;
+        modelsRemoved = finalDamage / parsedTargetWounds;
+      }
+      if (shootingDeflagrate && failedInvulnerableSaves > 0) {
+        deflagrateHits = failedInvulnerableSaves;
+        const deflagrateNormal = deflagrateHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+        const deflagrateInstant = deflagrateHits * (effectiveChances.instantChance + effectiveChances.instantAp2Chance);
+        const deflagrateNormalAp2 = deflagrateHits * effectiveChances.normalAp2Chance;
+        const deflagrateInstantAp2 = deflagrateHits * effectiveChances.instantAp2Chance;
+        const deflagrateFailedArmorNormal = (deflagrateNormal - deflagrateNormalAp2) * (1 - armorSaveChance)
+          + deflagrateNormalAp2;
+        const deflagrateFailedArmorInstant = (deflagrateInstant - deflagrateInstantAp2) * (1 - armorSaveChance)
+          + deflagrateInstantAp2;
+        const deflagrateFailedNormal = deflagrateFailedArmorNormal * (1 - effectiveSaveChance);
+        const deflagrateFailedInstant = deflagrateFailedArmorInstant * (1 - effectiveSaveChance);
+        deflagrateExtraWounds = deflagrateFailedNormal + deflagrateFailedInstant;
+        if (instantDeathActive || shootingMurderousEnabled) {
           if (shootingAtomanticShield) {
-            finalDamage = failedInvulnerableSaves * 2;
-            modelsRemoved = finalDamage / parsedTargetWounds;
+            finalDamage += deflagrateFailedNormal + deflagrateFailedInstant * 2;
           } else {
-            modelsRemoved = failedInvulnerableSaves;
-            finalDamage = modelsRemoved * parsedTargetWounds;
+            finalDamage += deflagrateFailedNormal + deflagrateFailedInstant * parsedTargetWounds;
           }
         } else {
-          finalDamage = failedInvulnerableSaves;
-          modelsRemoved = finalDamage / parsedTargetWounds;
+          finalDamage += deflagrateFailedNormal + deflagrateFailedInstant;
         }
       }
       setShootingProbabilityResults({
@@ -892,11 +1312,20 @@ export default function DiceApp() {
         hitRerollRolls: [],
         woundInitialRolls: [],
         woundRerollRolls: [],
+        penetrationTotals: [],
+        penetrationMaxDice: [],
+        rendingBonusRolls: [],
         armorInitialRolls: [],
         armorRerollRolls: [],
         wardInitialRolls: [],
         wardRerollRolls: [],
         multipleWoundsRolls: [],
+        penetrationDamageRolls: [],
+        deflagrateHits: parseFloat(deflagrateHits.toFixed(2)),
+        deflagrateExtraWounds: parseFloat(deflagrateExtraWounds.toFixed(2)),
+        rendingWounds: parseFloat(rendingWounds.toFixed(2)),
+        breachingWounds: parseFloat(breachingWounds.toFixed(2)),
+        murderousWounds: parseFloat(murderousWounds.toFixed(2)),
       });
       setHasShootingProbabilityResults(true);
       return;
@@ -929,8 +1358,9 @@ export default function DiceApp() {
       : hitChance;
     const woundChance = getFaceProbabilitiesWithReroll(parsedWoundValue, shootingRerollWound).successChance;
     const armorSaveModifier = parsedHitStrength - 3;
+    const hasArmorSave = shootingArmorSave.trim() !== '';
     const effectiveArmorSave = parsedArmorSave + armorSaveModifier;
-    const armorSaveChance = effectiveArmorSave > 1
+    const armorSaveChance = hasArmorSave && effectiveArmorSave > 1
       ? getFaceProbabilitiesWithReroll(effectiveArmorSave, shootingRerollArmor).successChance
       : 0;
     const wardSaveChance = parsedWardSave > 1
@@ -942,7 +1372,17 @@ export default function DiceApp() {
     const hitsToWound = parsedDiceCount * nonPoisonHitChance;
     const successfulWounds = autoWounds + hitsToWound * woundChance;
     const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
-    const failedWardSaves = failedArmorSaves * (1 - wardSaveChance);
+    const mitigationAllowed = parsedMitigationRoll > 1 &&
+      parsedMitigationRoll <= 6 &&
+      !(shootingDamageMitigationType === 'feelNoPain'
+        && parsedTargetToughness > 0
+        && parsedHitStrength >= parsedTargetToughness * 2) &&
+      !(shootingDamageMitigationType === 'shrouded' && shootingNoCover);
+    const mitigationChance = mitigationAllowed
+      ? getFaceProbabilitiesWithReroll(parsedMitigationRoll, shootingRerollMitigation).successChance
+      : 0;
+    const effectiveSaveChance = Math.max(wardSaveChance, mitigationChance);
+    const failedWardSaves = failedArmorSaves * (1 - effectiveSaveChance);
     const multipleWoundsMultiplier = parsedMultipleWounds
       ? (parsedMultipleWounds.type === 'dice'
         ? (parsedMultipleWounds.sides + 1) / 2
@@ -963,11 +1403,20 @@ export default function DiceApp() {
       hitRerollRolls: [],
       woundInitialRolls: [],
       woundRerollRolls: [],
+      penetrationTotals: [],
+      penetrationMaxDice: [],
+      rendingBonusRolls: [],
       armorInitialRolls: [],
       armorRerollRolls: [],
       wardInitialRolls: [],
       wardRerollRolls: [],
       multipleWoundsRolls: [],
+      penetrationDamageRolls: [],
+      deflagrateHits: 0,
+      deflagrateExtraWounds: 0,
+      rendingWounds: 0,
+      breachingWounds: 0,
+      murderousWounds: 0,
     });
     setHasShootingProbabilityResults(true);
   };
@@ -978,13 +1427,21 @@ export default function DiceApp() {
     const parsedHitStrength = Number.parseInt(shootingHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(shootingTargetToughness, 10);
     const parsedTargetWounds = Number.parseInt(shootingTargetWounds, 10);
+    const parsedTargetArmorValue = shootingTargetArmorValue.trim() === ''
+      ? 0
+      : Number.parseInt(shootingTargetArmorValue, 10);
     const parsedArmorPenetration = shootingArmorPenetration.trim() === ''
       ? Number.NaN
       : Number.parseInt(shootingArmorPenetration, 10);
-    const parsedArmorSave = Number.parseInt(shootingArmorSave, 10);
+    const parsedArmorSave = shootingArmorSave.trim() === ''
+      ? 0
+      : Number.parseInt(shootingArmorSave, 10);
     const parsedWardSave = shootingWardSave.trim() === ''
       ? 0
       : Number.parseInt(shootingWardSave, 10);
+    const parsedMitigationRoll = shootingDamageMitigationRoll.trim() === ''
+      ? 0
+      : Number.parseInt(shootingDamageMitigationRoll, 10);
     const resultNeeded = getShootingResultNeeded();
     const parsedMultipleWounds = shootingMultipleWoundsEnabled
       ? parseMultipleWoundsValue(shootingMultipleWoundsValue)
@@ -1025,67 +1482,307 @@ export default function DiceApp() {
           hitSuccesses += 1;
         }
       }
-      let woundSuccesses = hitSuccesses;
-      const woundInitialRolls: number[] = [];
-      if (shootingTargetType === 'living') {
-        const woundProfile = getHh2WoundProfile(parsedHitStrength, parsedTargetToughness);
-        if (woundProfile.impossible || woundProfile.target === null) {
-          woundSuccesses = 0;
-        } else {
-          woundSuccesses = 0;
-          for (let i = 0; i < hitSuccesses; i += 1) {
-            const roll = Math.floor(Math.random() * 6) + 1;
-            woundInitialRolls.push(roll);
-            if (roll >= woundProfile.target) {
-              woundSuccesses += 1;
+      if (shootingTargetType === 'vehicle') {
+        const woundInitialRolls: number[] = [];
+        const woundRerollRolls: number[] = [];
+        const penetrationTotals: number[] = [];
+        const penetrationMaxDice: number[] = [];
+        const rendingBonusRolls: number[] = [];
+        let glancingHits = 0;
+        let penetratingHits = 0;
+        let crewShaken = 0;
+        let crewStunned = 0;
+        let weaponDestroyed = 0;
+        let immobilised = 0;
+        let explodes = 0;
+        let rendingWounds = 0;
+        const penetrationDamageRolls: number[] = [];
+        const penetrationModifier = parsedArmorPenetration === 1
+          ? 2
+          : parsedArmorPenetration === 2
+            ? 1
+            : 0;
+        const effectiveArmorValue = shootingLance
+          ? Math.min(parsedTargetArmorValue, 12)
+          : parsedTargetArmorValue;
+        const maxPenetrationRoll = shootingMelta ? 12 : 6;
+        const woundSpecificValues = new Set(
+          parseSpecificValuesWithMax(shootingRerollWound.specificValues, maxPenetrationRoll),
+        );
+        const rendingValue = shootingRendingEnabled
+          ? Number.parseInt(shootingRendingValue, 10)
+          : null;
+        if (shootingRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) {
+          setShootingErrorMessage('Devi inserire un risultato di dado');
+          return;
+        }
+        const rollPenetrationDice = () => {
+          if (shootingMelta) {
+            const dieA = Math.floor(Math.random() * 6) + 1;
+            const dieB = Math.floor(Math.random() * 6) + 1;
+            return { roll: dieA + dieB, maxDie: Math.max(dieA, dieB) };
+          }
+          const die = Math.floor(Math.random() * 6) + 1;
+          return { roll: die, maxDie: die };
+        };
+        for (let i = 0; i < hitSuccesses; i += 1) {
+          let rollResult = rollPenetrationDice();
+          woundInitialRolls.push(rollResult.roll);
+          penetrationMaxDice.push(rollResult.maxDie);
+          let rendingTriggered = shootingRendingEnabled &&
+            rendingValue !== null &&
+            rollResult.maxDie >= rendingValue;
+          let rendingBonus = rendingTriggered ? Math.floor(Math.random() * 3) + 1 : 0;
+          let finalSum = rollResult.roll + parsedHitStrength + rendingBonus;
+          let isSuccess = finalSum >= effectiveArmorValue;
+          if (shouldRerollValue(rollResult.roll, isSuccess, shootingRerollWound, woundSpecificValues)) {
+            rollResult = rollPenetrationDice();
+            woundRerollRolls.push(rollResult.roll);
+            penetrationMaxDice[penetrationMaxDice.length - 1] = rollResult.maxDie;
+            rendingTriggered = shootingRendingEnabled &&
+              rendingValue !== null &&
+              rollResult.maxDie >= rendingValue;
+            rendingBonus = rendingTriggered ? Math.floor(Math.random() * 3) + 1 : 0;
+            finalSum = rollResult.roll + parsedHitStrength + rendingBonus;
+          }
+          rendingBonusRolls.push(rendingBonus);
+          if (finalSum === effectiveArmorValue) {
+            glancingHits += 1;
+          } else if (finalSum > effectiveArmorValue) {
+            penetratingHits += 1;
+            const damageRoll = Math.floor(Math.random() * 6) + 1;
+            penetrationDamageRolls.push(damageRoll);
+            const total = damageRoll + penetrationModifier;
+            if (total <= 3) {
+              crewShaken += 1;
+            } else if (total === 4) {
+              crewStunned += 1;
+            } else if (total === 5) {
+              weaponDestroyed += 1;
+            } else if (total === 6) {
+              immobilised += 1;
+            } else {
+              explodes += 1;
             }
           }
+          if (rendingTriggered) {
+            rendingWounds += 1;
+          }
+          penetrationTotals.push(finalSum);
         }
+        const totalHits = glancingHits + penetratingHits;
+        setShootingThrowResults({
+          successfulHits: hitSuccesses,
+          successfulWounds: totalHits,
+          poisonedAutoWounds: 0,
+          failedArmorSaves: 0,
+          failedWardSaves: 0,
+          finalDamage: totalHits,
+          glancingHits,
+          penetratingHits,
+          crewShaken,
+          crewStunned,
+          weaponDestroyed,
+          immobilised,
+          explodes,
+        });
+        setShootingDebug({
+          hitInitialRolls,
+          hitRerollRolls,
+          woundInitialRolls,
+          woundRerollRolls,
+          penetrationTotals,
+          penetrationMaxDice,
+          rendingBonusRolls,
+          armorInitialRolls: [],
+          armorRerollRolls: [],
+          wardInitialRolls: [],
+          wardRerollRolls: [],
+          multipleWoundsRolls: [],
+          penetrationDamageRolls,
+          deflagrateHits: 0,
+          deflagrateExtraWounds: 0,
+          rendingWounds,
+          breachingWounds: 0,
+          murderousWounds: 0,
+        });
+        setHasShootingThrowResults(true);
+        return;
       }
+      const breachingValue = shootingBreachingEnabled
+        ? Number.parseInt(shootingBreachingValue, 10)
+        : null;
+      const rendingValue = shootingRendingEnabled
+        ? Number.parseInt(shootingRendingValue, 10)
+        : null;
+      const murderousValue = shootingMurderousEnabled
+        ? Number.parseInt(shootingMurderousValue, 10)
+        : null;
+      if (
+        (shootingBreachingEnabled && (!Number.isFinite(breachingValue) || breachingValue! < 1 || breachingValue! > 6)) ||
+        (shootingRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) ||
+        (shootingMurderousEnabled && (!Number.isFinite(murderousValue) || murderousValue! < 1 || murderousValue! > 6))
+      ) {
+        setShootingErrorMessage('Devi inserire un risultato di dado');
+        return;
+      }
+      const woundInitialRolls: number[] = [];
+      const woundRerollRolls: number[] = [];
+      const armorInitialRolls: number[] = [];
+      const armorRerollRolls: number[] = [];
+      const wardInitialRolls: number[] = [];
+      const wardRerollRolls: number[] = [];
+      const woundProfile = getHh2WoundProfile(parsedHitStrength, parsedTargetToughness);
+      const woundTarget = woundProfile.target ?? 0;
+      const woundSpecificValues = new Set(parseSpecificValues(shootingRerollWound.specificValues));
+      const armorSpecificValues = new Set(parseSpecificValues(shootingRerollArmor.specificValues));
+      const wardSpecificValues = new Set(parseSpecificValues(shootingRerollWard.specificValues));
+      const hasArmorSave = shootingArmorSave.trim() !== '';
       const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
         parsedArmorPenetration > 0 &&
         parsedArmorPenetration <= parsedArmorSave;
-      let failedArmorSaves = woundSuccesses;
-      if (!armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6) {
-        for (let i = 0; i < woundSuccesses; i += 1) {
-          const roll = Math.floor(Math.random() * 6) + 1;
-          if (roll >= parsedArmorSave) {
-            failedArmorSaves -= 1;
+      let failedArmorSaves = 0;
+      let failedInvulnerableSaves = 0;
+      let normalUnsaved = 0;
+      let instantUnsaved = 0;
+      let successfulWounds = 0;
+      let rendingWounds = 0;
+      let breachingWounds = 0;
+      let murderousWounds = 0;
+      const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+      const resolveSave = (isInstant: boolean, isAp2: boolean) => {
+        let armorFailed = true;
+        if (hasArmorSave && !isAp2 && !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6) {
+          let roll = Math.floor(Math.random() * 6) + 1;
+          armorInitialRolls.push(roll);
+          let isSuccess = roll >= parsedArmorSave;
+          if (shouldRerollValue(roll, isSuccess, shootingRerollArmor, armorSpecificValues)) {
+            roll = Math.floor(Math.random() * 6) + 1;
+            armorRerollRolls.push(roll);
+            isSuccess = roll >= parsedArmorSave;
           }
+          armorFailed = !isSuccess;
         }
-      }
-      let failedInvulnerableSaves = failedArmorSaves;
-      if (parsedWardSave > 1 && parsedWardSave <= 6) {
-        for (let i = 0; i < failedArmorSaves; i += 1) {
-          const roll = Math.floor(Math.random() * 6) + 1;
-          if (roll >= parsedWardSave) {
-            failedInvulnerableSaves -= 1;
-          }
-        }
-      }
-      let finalDamage = failedInvulnerableSaves;
-      let modelsRemoved = 0;
-      if (shootingTargetType === 'living') {
-        const instantDeathActive = shootingInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
-        if (instantDeathActive) {
-          if (shootingAtomanticShield) {
-            finalDamage = 0;
-            for (let i = 0; i < failedInvulnerableSaves; i += 1) {
-              finalDamage += Math.floor(Math.random() * 3) + 1;
+        if (armorFailed) {
+          failedArmorSaves += 1;
+          const invulnerableAllowed = parsedWardSave > 1 && parsedWardSave <= 6;
+          const mitigationAllowed = parsedMitigationRoll > 1 &&
+            parsedMitigationRoll <= 6 &&
+            !(shootingDamageMitigationType === 'feelNoPain' && isInstant) &&
+            !(shootingDamageMitigationType === 'shrouded' && shootingNoCover);
+          const effectiveSaveTarget = invulnerableAllowed && mitigationAllowed
+            ? Math.min(parsedWardSave, parsedMitigationRoll)
+            : (invulnerableAllowed ? parsedWardSave : (mitigationAllowed ? parsedMitigationRoll : null));
+          const useWardReroll = invulnerableAllowed && (!mitigationAllowed || parsedWardSave <= parsedMitigationRoll);
+          if (effectiveSaveTarget !== null) {
+            let roll = Math.floor(Math.random() * 6) + 1;
+            wardInitialRolls.push(roll);
+            let isSuccess = roll >= effectiveSaveTarget;
+            const rerollConfig = useWardReroll ? shootingRerollWard : shootingRerollMitigation;
+            const rerollSpecificValues = useWardReroll
+              ? wardSpecificValues
+              : new Set(parseSpecificValues(shootingRerollMitigation.specificValues));
+            if (shouldRerollValue(roll, isSuccess, rerollConfig, rerollSpecificValues)) {
+              roll = Math.floor(Math.random() * 6) + 1;
+              wardRerollRolls.push(roll);
+              isSuccess = roll >= effectiveSaveTarget;
             }
-            modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
+            if (!isSuccess) {
+              failedInvulnerableSaves += 1;
+              if (isInstant) {
+                instantUnsaved += 1;
+              } else {
+                normalUnsaved += 1;
+              }
+            }
           } else {
-            modelsRemoved = failedInvulnerableSaves;
-            finalDamage = modelsRemoved * parsedTargetWounds;
+            failedInvulnerableSaves += 1;
+            if (isInstant) {
+              instantUnsaved += 1;
+            } else {
+              normalUnsaved += 1;
+            }
           }
-        } else {
-          finalDamage = failedInvulnerableSaves;
-          modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
         }
+      };
+      if (!woundProfile.impossible && woundTarget > 0) {
+        for (let i = 0; i < hitSuccesses; i += 1) {
+          let roll = Math.floor(Math.random() * 6) + 1;
+          woundInitialRolls.push(roll);
+          let isRending = shootingRendingEnabled && rendingValue !== null && roll >= rendingValue;
+          let isSuccess = isRending || roll >= woundTarget;
+          if (shouldRerollValue(roll, isSuccess, shootingRerollWound, woundSpecificValues)) {
+            roll = Math.floor(Math.random() * 6) + 1;
+            woundRerollRolls.push(roll);
+            isRending = shootingRendingEnabled && rendingValue !== null && roll >= rendingValue;
+            isSuccess = isRending || roll >= woundTarget;
+          }
+          if (!isSuccess) {
+            continue;
+          }
+          successfulWounds += 1;
+          const isBreaching = shootingBreachingEnabled && breachingValue !== null && roll >= breachingValue;
+          const isAp2 = isRending || isBreaching;
+          const isInstant = instantDeathActive
+            || (shootingMurderousEnabled && murderousValue !== null && roll >= murderousValue);
+          if (isRending) {
+            rendingWounds += 1;
+          }
+          if (isBreaching) {
+            breachingWounds += 1;
+          }
+          if (shootingMurderousEnabled && murderousValue !== null && roll >= murderousValue) {
+            murderousWounds += 1;
+          }
+          resolveSave(isInstant, isAp2);
+        }
+      }
+      let deflagrateHits = 0;
+      let deflagrateExtraWounds = 0;
+      if (shootingDeflagrate) {
+        const baseUnsaved = normalUnsaved + instantUnsaved;
+        deflagrateHits = baseUnsaved;
+        for (let i = 0; i < deflagrateHits; i += 1) {
+          let roll = Math.floor(Math.random() * 6) + 1;
+          let isRending = shootingRendingEnabled && rendingValue !== null && roll >= rendingValue;
+          let isSuccess = isRending || roll >= woundTarget;
+          if (shouldRerollValue(roll, isSuccess, shootingRerollWound, woundSpecificValues)) {
+            roll = Math.floor(Math.random() * 6) + 1;
+            isRending = shootingRendingEnabled && rendingValue !== null && roll >= rendingValue;
+            isSuccess = isRending || roll >= woundTarget;
+          }
+          if (!isSuccess) {
+            continue;
+          }
+          const isBreaching = shootingBreachingEnabled && breachingValue !== null && roll >= breachingValue;
+          const isAp2 = isRending || isBreaching;
+          const isInstant = instantDeathActive
+            || (shootingMurderousEnabled && murderousValue !== null && roll >= murderousValue);
+          resolveSave(isInstant, isAp2);
+        }
+        deflagrateExtraWounds = (normalUnsaved + instantUnsaved) - baseUnsaved;
+      }
+      const totalUnsaved = normalUnsaved + instantUnsaved;
+      let finalDamage = totalUnsaved;
+      let modelsRemoved = 0;
+      if (instantDeathActive || shootingMurderousEnabled) {
+        if (shootingAtomanticShield) {
+          finalDamage = normalUnsaved;
+          for (let i = 0; i < instantUnsaved; i += 1) {
+            finalDamage += Math.floor(Math.random() * 3) + 1;
+          }
+          modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
+        } else {
+          finalDamage = normalUnsaved + instantUnsaved * parsedTargetWounds;
+          modelsRemoved = normalUnsaved / parsedTargetWounds + instantUnsaved;
+        }
+      } else {
+        finalDamage = totalUnsaved;
+        modelsRemoved = Math.floor(finalDamage / parsedTargetWounds);
       }
       setShootingThrowResults({
         successfulHits: hitSuccesses,
-        successfulWounds: woundSuccesses,
+        successfulWounds: successfulWounds,
         poisonedAutoWounds: 0,
         failedArmorSaves,
         failedWardSaves: failedInvulnerableSaves,
@@ -1096,12 +1793,21 @@ export default function DiceApp() {
         hitInitialRolls,
         hitRerollRolls,
         woundInitialRolls,
-        woundRerollRolls: [],
-        armorInitialRolls: [],
-        armorRerollRolls: [],
-        wardInitialRolls: [],
-        wardRerollRolls: [],
+        woundRerollRolls,
+        penetrationTotals: [],
+        penetrationMaxDice: [],
+        rendingBonusRolls: [],
+        armorInitialRolls,
+        armorRerollRolls,
+        wardInitialRolls,
+        wardRerollRolls,
         multipleWoundsRolls: [],
+        penetrationDamageRolls: [],
+        deflagrateHits,
+        deflagrateExtraWounds,
+        rendingWounds,
+        breachingWounds,
+        murderousWounds,
       });
       setHasShootingThrowResults(true);
       return;
@@ -1140,11 +1846,20 @@ export default function DiceApp() {
         hitRerollRolls: [],
         woundInitialRolls: [],
         woundRerollRolls: [],
+        penetrationTotals: [],
+        penetrationMaxDice: [],
+        rendingBonusRolls: [],
         armorInitialRolls: [],
         armorRerollRolls: [],
         wardInitialRolls: [],
         wardRerollRolls: [],
         multipleWoundsRolls: [],
+        penetrationDamageRolls: [],
+        deflagrateHits: 0,
+        deflagrateExtraWounds: 0,
+        rendingWounds: 0,
+        breachingWounds: 0,
+        murderousWounds: 0,
       });
       setHasShootingThrowResults(true);
       return;
@@ -1200,12 +1915,13 @@ export default function DiceApp() {
       ? poisonedAutoWounds + woundSuccesses
       : woundSuccesses;
 
+    const hasArmorSave = shootingArmorSave.trim() !== '';
     const effectiveArmorSave = parsedArmorSave + (parsedHitStrength - 3);
     let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
     let armorInitialRolls: number[] = [];
     let armorRerollRolls: number[] = [];
-    if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
+    if (hasArmorSave && effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
       armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
       const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, shootingRerollArmor);
       armorRerollRolls = armorRerollResult.rerollRolls;
@@ -1218,12 +1934,28 @@ export default function DiceApp() {
     let wardRolls: number[] = [];
     let wardInitialRolls: number[] = [];
     let wardRerollRolls: number[] = [];
-    if (parsedWardSave > 1 && parsedWardSave <= 6) {
+    const mitigationAllowed = parsedMitigationRoll > 1 &&
+      parsedMitigationRoll <= 6 &&
+      !(shootingDamageMitigationType === 'feelNoPain'
+        && parsedTargetToughness > 0
+        && parsedHitStrength >= parsedTargetToughness * 2) &&
+      !(shootingDamageMitigationType === 'shrouded' && shootingNoCover);
+    const mitigationTarget = mitigationAllowed ? parsedMitigationRoll : null;
+    const wardTarget = parsedWardSave > 1 && parsedWardSave <= 6 ? parsedWardSave : null;
+    const effectiveSaveTarget = wardTarget !== null && mitigationTarget !== null
+      ? Math.min(wardTarget, mitigationTarget)
+      : (wardTarget ?? mitigationTarget);
+    const useWardReroll = wardTarget !== null && (mitigationTarget === null || wardTarget <= mitigationTarget);
+    if (effectiveSaveTarget !== null) {
       wardInitialRolls = Array.from({ length: failedArmorSaves }, () => Math.floor(Math.random() * 6) + 1);
-      const wardRerollResult = applyRerollWithDebug(wardInitialRolls, parsedWardSave, shootingRerollWard);
+      const wardRerollResult = applyRerollWithDebug(
+        wardInitialRolls,
+        effectiveSaveTarget,
+        useWardReroll ? shootingRerollWard : shootingRerollMitigation,
+      );
       wardRerollRolls = wardRerollResult.rerollRolls;
       wardRolls = wardRerollResult.finalRolls;
-      const wardSuccesses = wardRolls.filter((roll) => roll >= parsedWardSave).length;
+      const wardSuccesses = wardRolls.filter((roll) => roll >= effectiveSaveTarget).length;
       failedWardSaves = failedArmorSaves - wardSuccesses;
     }
 
@@ -1251,13 +1983,407 @@ export default function DiceApp() {
       hitRerollRolls,
       woundInitialRolls,
       woundRerollRolls: woundRerollResult.rerollRolls,
+      penetrationTotals: [],
+      penetrationMaxDice: [],
+      rendingBonusRolls: [],
       armorInitialRolls,
       armorRerollRolls,
       wardInitialRolls,
       wardRerollRolls,
       multipleWoundsRolls,
+      penetrationDamageRolls: [],
+      deflagrateHits: 0,
+      deflagrateExtraWounds: 0,
+      rendingWounds: 0,
+      breachingWounds: 0,
+      murderousWounds: 0,
     });
     setHasShootingThrowResults(true);
+  };
+
+  const handleHh2CombatAverageCalculate = () => {
+    const parsedDiceCount = Number.parseInt(diceCount, 10);
+    const parsedAttackersAc = Number.parseInt(attackersAc, 10);
+    const parsedDefendersAc = Number.parseInt(defendersAc, 10);
+    const parsedHitStrength = Number.parseInt(throwHitStrength, 10);
+    const parsedTargetToughness = Number.parseInt(targetToughness, 10);
+    const parsedTargetWounds = Number.parseInt(combatTargetWounds, 10);
+    const parsedTargetArmorValue = combatTargetArmorValue.trim() === ''
+      ? 0
+      : Number.parseInt(combatTargetArmorValue, 10);
+    const parsedArmorSave = throwArmorSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwArmorSave, 10);
+    const parsedWardSave = throwWardSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwWardSave, 10);
+
+    setErrorMessage('');
+    if (
+      Number.isNaN(parsedDiceCount) ||
+      parsedDiceCount <= 0 ||
+      Number.isNaN(parsedAttackersAc) ||
+      Number.isNaN(parsedDefendersAc) ||
+      Number.isNaN(parsedHitStrength)
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    if (
+      combatTargetType === 'living' &&
+      (Number.isNaN(parsedTargetToughness) ||
+        Number.isNaN(parsedTargetWounds) ||
+        parsedTargetWounds <= 0)
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    if (combatTargetType === 'vehicle' && Number.isNaN(parsedTargetArmorValue)) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    const hitTarget = getHitTarget(parsedAttackersAc, parsedDefendersAc);
+    const hitChance = getFaceProbabilitiesWithReroll(hitTarget, combatRerollHit).successChance;
+    const successfulHits = parsedDiceCount * hitChance;
+
+      if (combatTargetType === 'vehicle') {
+        const { glancingChance, penetratingChance } = getPenetrationChances(
+          parsedHitStrength,
+          parsedTargetArmorValue,
+          combatRerollWound,
+          false,
+          null,
+        );
+      const glancingHits = successfulHits * glancingChance;
+      const penetratingHits = successfulHits * penetratingChance;
+      const totalHits = glancingHits + penetratingHits;
+      setResults({
+        successfulHits: parseFloat(successfulHits.toFixed(2)),
+        successfulWounds: parseFloat(totalHits.toFixed(2)),
+        poisonedAutoWounds: 0,
+        failedArmorSaves: 0,
+        failedWardSaves: 0,
+        finalDamage: parseFloat(totalHits.toFixed(2)),
+        glancingHits: parseFloat(glancingHits.toFixed(2)),
+        penetratingHits: parseFloat(penetratingHits.toFixed(2)),
+      });
+      setHasResults(true);
+      return;
+    }
+
+    const breachingValue = combatBreachingEnabled
+      ? Number.parseInt(combatBreachingValue, 10)
+      : null;
+    const rendingValue = combatRendingEnabled
+      ? Number.parseInt(combatRendingValue, 10)
+      : null;
+    const murderousValue = combatMurderousEnabled
+      ? Number.parseInt(combatMurderousValue, 10)
+      : null;
+    if (
+      (combatBreachingEnabled && (!Number.isFinite(breachingValue) || breachingValue! < 1 || breachingValue! > 6)) ||
+      (combatRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) ||
+      (combatMurderousEnabled && (!Number.isFinite(murderousValue) || murderousValue! < 1 || murderousValue! > 6))
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
+    const woundChances = getWoundCategoryChances(woundTarget, combatRerollWound, {
+      breachingValue,
+      rendingValue,
+      murderousValue,
+    });
+    const instantDeathActive = combatInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+    const effectiveChances = instantDeathActive
+      ? {
+        normalChance: 0,
+        normalAp2Chance: 0,
+        instantChance: woundChances.normalChance + woundChances.instantChance,
+        instantAp2Chance: woundChances.normalAp2Chance + woundChances.instantAp2Chance,
+      }
+      : woundChances;
+    const normalWounds = successfulHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+    const normalAp2Wounds = successfulHits * effectiveChances.normalAp2Chance;
+    const instantWounds = successfulHits * effectiveChances.instantChance;
+    const instantAp2Wounds = successfulHits * effectiveChances.instantAp2Chance;
+    const successfulWounds = successfulHits * (
+      effectiveChances.normalChance
+      + effectiveChances.normalAp2Chance
+      + effectiveChances.instantChance
+      + effectiveChances.instantAp2Chance
+    );
+    const hasArmorSave = throwArmorSave.trim() !== '';
+    const armorSaveChance = hasArmorSave && parsedArmorSave > 1 && parsedArmorSave <= 6
+      ? getFaceProbabilitiesWithReroll(parsedArmorSave, combatRerollArmor).successChance
+      : 0;
+    const wardSaveChance = parsedWardSave > 1 && parsedWardSave <= 6
+      ? getFaceProbabilitiesWithReroll(parsedWardSave, combatRerollWard).successChance
+      : 0;
+    const failedArmorNormal = (normalWounds - normalAp2Wounds) * (1 - armorSaveChance) + normalAp2Wounds;
+    const failedArmorInstant = (instantWounds - instantAp2Wounds) * (1 - armorSaveChance) + instantAp2Wounds;
+    const failedNormal = failedArmorNormal * (1 - wardSaveChance);
+    const failedInstant = failedArmorInstant * (1 - wardSaveChance);
+    const failedArmorSaves = failedArmorNormal + failedArmorInstant;
+    const failedWardSaves = failedNormal + failedInstant;
+    let finalDamage = failedWardSaves;
+    let modelsRemoved = 0;
+    if (instantDeathActive || combatMurderousEnabled) {
+      if (parsedTargetWounds > 0) {
+        finalDamage = failedNormal + failedInstant * parsedTargetWounds;
+        modelsRemoved = failedNormal / parsedTargetWounds + failedInstant;
+      }
+    } else if (parsedTargetWounds > 0) {
+      modelsRemoved = finalDamage / parsedTargetWounds;
+    }
+    if (combatDeflagrate && failedWardSaves > 0) {
+      const deflagrateHits = failedWardSaves;
+      const deflagrateNormal = deflagrateHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+      const deflagrateNormalAp2 = deflagrateHits * effectiveChances.normalAp2Chance;
+      const deflagrateInstant = deflagrateHits * (effectiveChances.instantChance + effectiveChances.instantAp2Chance);
+      const deflagrateInstantAp2 = deflagrateHits * effectiveChances.instantAp2Chance;
+      const deflagrateFailedNormal = (deflagrateNormal - deflagrateNormalAp2) * (1 - armorSaveChance) + deflagrateNormalAp2;
+      const deflagrateFailedInstant = (deflagrateInstant - deflagrateInstantAp2) * (1 - armorSaveChance) + deflagrateInstantAp2;
+      const deflagrateNormalFinal = deflagrateFailedNormal * (1 - wardSaveChance);
+      const deflagrateInstantFinal = deflagrateFailedInstant * (1 - wardSaveChance);
+      if (instantDeathActive || combatMurderousEnabled) {
+        if (parsedTargetWounds > 0) {
+          finalDamage += deflagrateNormalFinal + deflagrateInstantFinal * parsedTargetWounds;
+        }
+      } else {
+        finalDamage += deflagrateNormalFinal + deflagrateInstantFinal;
+      }
+    }
+
+    setResults({
+      successfulHits: parseFloat(successfulHits.toFixed(2)),
+      successfulWounds: parseFloat(successfulWounds.toFixed(2)),
+      poisonedAutoWounds: 0,
+      failedArmorSaves: parseFloat(failedArmorSaves.toFixed(2)),
+      failedWardSaves: parseFloat(failedWardSaves.toFixed(2)),
+      finalDamage: parseFloat(finalDamage.toFixed(2)),
+      modelsRemoved: parseFloat(modelsRemoved.toFixed(2)),
+    });
+    setHasResults(true);
+  };
+
+  const handleHh2CombatThrowCalculate = () => {
+    const parsedDiceCount = Number.parseInt(diceCount, 10);
+    const parsedAttackersAc = Number.parseInt(attackersAc, 10);
+    const parsedDefendersAc = Number.parseInt(defendersAc, 10);
+    const parsedHitStrength = Number.parseInt(throwHitStrength, 10);
+    const parsedTargetToughness = Number.parseInt(targetToughness, 10);
+    const parsedTargetWounds = Number.parseInt(combatTargetWounds, 10);
+    const parsedTargetArmorValue = combatTargetArmorValue.trim() === ''
+      ? 0
+      : Number.parseInt(combatTargetArmorValue, 10);
+    const parsedArmorSave = throwArmorSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwArmorSave, 10);
+    const parsedWardSave = throwWardSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwWardSave, 10);
+
+    setErrorMessage('');
+    if (
+      Number.isNaN(parsedDiceCount) ||
+      parsedDiceCount <= 0 ||
+      Number.isNaN(parsedAttackersAc) ||
+      Number.isNaN(parsedDefendersAc) ||
+      Number.isNaN(parsedHitStrength)
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    if (
+      combatTargetType === 'living' &&
+      (Number.isNaN(parsedTargetToughness) ||
+        Number.isNaN(parsedTargetWounds) ||
+        parsedTargetWounds <= 0)
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    if (combatTargetType === 'vehicle' && Number.isNaN(parsedTargetArmorValue)) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+
+    const hitTarget = getHitTarget(parsedAttackersAc, parsedDefendersAc);
+    const hitInitialRolls = Array.from({ length: parsedDiceCount }, () => Math.floor(Math.random() * 6) + 1);
+    const hitRerollResult = applyRerollWithDebug(hitInitialRolls, hitTarget, combatRerollHit);
+    const hitRolls = hitRerollResult.finalRolls;
+    const hitSuccesses = hitRolls.filter((roll) => roll >= hitTarget).length;
+
+    if (combatTargetType === 'vehicle') {
+      const woundInitialRolls: number[] = [];
+      const woundRerollRolls: number[] = [];
+      let glancingHits = 0;
+      let penetratingHits = 0;
+      const maxPenetrationRoll = 6;
+      const woundSpecificValues = new Set(
+        parseSpecificValuesWithMax(combatRerollWound.specificValues, maxPenetrationRoll),
+      );
+      const rollPenetrationDie = () => Math.floor(Math.random() * 6) + 1;
+      for (let i = 0; i < hitSuccesses; i += 1) {
+        let roll = rollPenetrationDie();
+        woundInitialRolls.push(roll);
+        const sum = roll + parsedHitStrength;
+        let isSuccess = sum >= parsedTargetArmorValue;
+        if (shouldRerollValue(roll, isSuccess, combatRerollWound, woundSpecificValues)) {
+          roll = rollPenetrationDie();
+          woundRerollRolls.push(roll);
+        }
+        const finalSum = roll + parsedHitStrength;
+        if (finalSum === parsedTargetArmorValue) {
+          glancingHits += 1;
+        } else if (finalSum > parsedTargetArmorValue) {
+          penetratingHits += 1;
+        }
+      }
+      const totalHits = glancingHits + penetratingHits;
+      setThrowResults({
+        successfulHits: hitSuccesses,
+        successfulWounds: totalHits,
+        poisonedAutoWounds: 0,
+        failedArmorSaves: 0,
+        failedWardSaves: 0,
+        finalDamage: totalHits,
+        glancingHits,
+        penetratingHits,
+      });
+      setHasThrowResults(true);
+      return;
+    }
+
+    const breachingValue = combatBreachingEnabled
+      ? Number.parseInt(combatBreachingValue, 10)
+      : null;
+    const rendingValue = combatRendingEnabled
+      ? Number.parseInt(combatRendingValue, 10)
+      : null;
+    const murderousValue = combatMurderousEnabled
+      ? Number.parseInt(combatMurderousValue, 10)
+      : null;
+    if (
+      (combatBreachingEnabled && (!Number.isFinite(breachingValue) || breachingValue! < 1 || breachingValue! > 6)) ||
+      (combatRendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) ||
+      (combatMurderousEnabled && (!Number.isFinite(murderousValue) || murderousValue! < 1 || murderousValue! > 6))
+    ) {
+      setErrorMessage('Devi inserire un risultato di dado');
+      return;
+    }
+    const woundTarget = getWoundTarget(parsedHitStrength, parsedTargetToughness);
+    const woundSpecificValues = new Set(parseSpecificValues(combatRerollWound.specificValues));
+    const armorSpecificValues = new Set(parseSpecificValues(combatRerollArmor.specificValues));
+    const wardSpecificValues = new Set(parseSpecificValues(combatRerollWard.specificValues));
+    const hasArmorSave = throwArmorSave.trim() !== '';
+    let failedArmorSaves = 0;
+    let failedWardSaves = 0;
+    let normalUnsaved = 0;
+    let instantUnsaved = 0;
+    let successfulWounds = 0;
+    const instantDeathActive = combatInstantDeath || parsedHitStrength >= parsedTargetToughness * 2;
+    const resolveSave = (isInstant: boolean, isAp2: boolean) => {
+      let armorFailed = true;
+      if (hasArmorSave && !isAp2 && parsedArmorSave > 1 && parsedArmorSave <= 6) {
+        let roll = Math.floor(Math.random() * 6) + 1;
+        let isSuccess = roll >= parsedArmorSave;
+        if (shouldRerollValue(roll, isSuccess, combatRerollArmor, armorSpecificValues)) {
+          roll = Math.floor(Math.random() * 6) + 1;
+          isSuccess = roll >= parsedArmorSave;
+        }
+        armorFailed = !isSuccess;
+      }
+      if (armorFailed) {
+        failedArmorSaves += 1;
+        if (parsedWardSave > 1 && parsedWardSave <= 6) {
+          let roll = Math.floor(Math.random() * 6) + 1;
+          let isSuccess = roll >= parsedWardSave;
+          if (shouldRerollValue(roll, isSuccess, combatRerollWard, wardSpecificValues)) {
+            roll = Math.floor(Math.random() * 6) + 1;
+            isSuccess = roll >= parsedWardSave;
+          }
+          if (!isSuccess) {
+            failedWardSaves += 1;
+            if (isInstant) {
+              instantUnsaved += 1;
+            } else {
+              normalUnsaved += 1;
+            }
+          }
+        } else {
+          failedWardSaves += 1;
+          if (isInstant) {
+            instantUnsaved += 1;
+          } else {
+            normalUnsaved += 1;
+          }
+        }
+      }
+    };
+    for (let i = 0; i < hitSuccesses; i += 1) {
+      let roll = Math.floor(Math.random() * 6) + 1;
+      let isRending = combatRendingEnabled && rendingValue !== null && roll >= rendingValue;
+      let isSuccess = isRending || roll >= woundTarget;
+      if (shouldRerollValue(roll, isSuccess, combatRerollWound, woundSpecificValues)) {
+        roll = Math.floor(Math.random() * 6) + 1;
+        isRending = combatRendingEnabled && rendingValue !== null && roll >= rendingValue;
+        isSuccess = isRending || roll >= woundTarget;
+      }
+      if (!isSuccess) {
+        continue;
+      }
+      successfulWounds += 1;
+      const isBreaching = combatBreachingEnabled && breachingValue !== null && roll >= breachingValue;
+      const isAp2 = isRending || isBreaching;
+      const isInstant = instantDeathActive
+        || (combatMurderousEnabled && murderousValue !== null && roll >= murderousValue);
+      resolveSave(isInstant, isAp2);
+    }
+    if (combatDeflagrate && normalUnsaved + instantUnsaved > 0) {
+      const deflagrateHits = normalUnsaved + instantUnsaved;
+      for (let i = 0; i < deflagrateHits; i += 1) {
+        let roll = Math.floor(Math.random() * 6) + 1;
+        let isRending = combatRendingEnabled && rendingValue !== null && roll >= rendingValue;
+        let isSuccess = isRending || roll >= woundTarget;
+        if (shouldRerollValue(roll, isSuccess, combatRerollWound, woundSpecificValues)) {
+          roll = Math.floor(Math.random() * 6) + 1;
+          isRending = combatRendingEnabled && rendingValue !== null && roll >= rendingValue;
+          isSuccess = isRending || roll >= woundTarget;
+        }
+        if (!isSuccess) {
+          continue;
+        }
+        const isBreaching = combatBreachingEnabled && breachingValue !== null && roll >= breachingValue;
+        const isAp2 = isRending || isBreaching;
+        const isInstant = instantDeathActive
+          || (combatMurderousEnabled && murderousValue !== null && roll >= murderousValue);
+        resolveSave(isInstant, isAp2);
+      }
+    }
+    let finalDamage = normalUnsaved + instantUnsaved;
+    let modelsRemoved = 0;
+    if (instantDeathActive || combatMurderousEnabled) {
+      if (parsedTargetWounds > 0) {
+        finalDamage = normalUnsaved + instantUnsaved * parsedTargetWounds;
+        modelsRemoved = normalUnsaved / parsedTargetWounds + instantUnsaved;
+      }
+    } else if (parsedTargetWounds > 0) {
+      modelsRemoved = finalDamage / parsedTargetWounds;
+    }
+
+    setThrowResults({
+      successfulHits: hitSuccesses,
+      successfulWounds: successfulWounds,
+      poisonedAutoWounds: 0,
+      failedArmorSaves,
+      failedWardSaves,
+      finalDamage,
+      modelsRemoved,
+    });
+    setHasThrowResults(true);
   };
 
   const handleThrowCalculate = () => {
@@ -1266,7 +2392,9 @@ export default function DiceApp() {
     const parsedDefendersAc = Number.parseInt(defendersAc, 10);
     const parsedHitStrength = Number.parseInt(throwHitStrength, 10);
     const parsedTargetToughness = Number.parseInt(targetToughness, 10);
-    const parsedThrowArmorSave = Number.parseInt(throwArmorSave, 10);
+    const parsedThrowArmorSave = throwArmorSave.trim() === ''
+      ? 0
+      : Number.parseInt(throwArmorSave, 10);
     const parsedThrowWardSave = throwWardSave.trim() === ''
       ? 0
       : Number.parseInt(throwWardSave, 10);
@@ -1333,11 +2461,14 @@ export default function DiceApp() {
     const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
     const totalWounds = poisonedAttack ? poisonedAutoWounds + woundSuccesses : woundSuccesses;
 
-    const effectiveArmorSave = parsedThrowArmorSave + (parsedHitStrength - 3);
+    const hasThrowArmorSave = throwArmorSave.trim() !== '';
+    const effectiveArmorSave = hasThrowArmorSave
+      ? parsedThrowArmorSave + (parsedHitStrength - 3)
+      : null;
     let failedArmorSaves = totalWounds;
     let armorRolls: number[] = [];
     let armorRerollRolls: number[] = [];
-    if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
+    if (effectiveArmorSave !== null && effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
       const armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
       const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, combatRerollArmor);
       armorRerollRolls = armorRerollResult.rerollRolls;
@@ -1407,8 +2538,7 @@ export default function DiceApp() {
       diceCount.trim() === '' ||
       hitValue.trim() === '' ||
       hitStrength.trim() === '' ||
-      woundValue.trim() === '' ||
-      armorSave.trim() === ''
+      woundValue.trim() === ''
     ) {
       setErrorMessage('Devi inserire un risultato di dado');
       return;
@@ -1418,7 +2548,9 @@ export default function DiceApp() {
     const parsedHitValue = Number.parseInt(hitValue, 10);
     const parsedHitStrength = Number.parseInt(hitStrength, 10);
     const parsedWoundValue = Number.parseInt(woundValue, 10);
-    const parsedArmorSave = Number.parseInt(armorSave, 10);
+    const parsedArmorSave = armorSave.trim() === ''
+      ? 0
+      : Number.parseInt(armorSave, 10);
     const parsedWardSave = wardSave.trim() === ''
       ? 0
       : Number.parseInt(wardSave, 10);
@@ -1531,16 +2663,29 @@ export default function DiceApp() {
                 autoHit={shootingAutoHit}
                 targetType={shootingTargetType}
                 targetWounds={shootingTargetWounds}
+                targetArmorValue={shootingTargetArmorValue}
+                lance={shootingLance}
+                melta={shootingMelta}
                 instantDeath={shootingInstantDeath}
                 atomanticShield={shootingAtomanticShield}
                 multipleWoundsEnabled={shootingMultipleWoundsEnabled}
                 multipleWoundsValue={shootingMultipleWoundsValue}
+                damageMitigationRoll={shootingDamageMitigationRoll}
+                damageMitigationType={shootingDamageMitigationType}
+                noCover={shootingNoCover}
                 hitStrength={shootingHitStrength}
                 targetToughness={shootingTargetToughness}
                 armorPenetration={shootingArmorPenetration}
                 woundValue={shootingWoundValue}
                 armorSave={shootingArmorSave}
                 wardSave={shootingWardSave}
+                deflagrate={shootingDeflagrate}
+                breachingEnabled={shootingBreachingEnabled}
+                breachingValue={shootingBreachingValue}
+                rendingEnabled={shootingRendingEnabled}
+                rendingValue={shootingRendingValue}
+                murderousEnabled={shootingMurderousEnabled}
+                murderousValue={shootingMurderousValue}
                 resultNeeded={getShootingResultNeeded()}
                 modifiers={shootingModifiers}
                 errorMessage={shootingErrorMessage}
@@ -1552,6 +2697,7 @@ export default function DiceApp() {
                 rerollWoundConfig={shootingRerollWound}
                 rerollArmorConfig={shootingRerollArmor}
                 rerollWardConfig={shootingRerollWard}
+                rerollMitigationConfig={shootingRerollMitigation}
                 debug={shootingDebug}
                 onDiceCountChange={setShootingDiceCount}
                 onProbabilityModeChange={setProbabilityModeAll}
@@ -1561,16 +2707,29 @@ export default function DiceApp() {
                 onAutoHitChange={handleShootingAutoHitChange}
                 onTargetTypeChange={setShootingTargetType}
                 onTargetWoundsChange={setShootingTargetWounds}
+                onTargetArmorValueChange={setShootingTargetArmorValue}
+                onLanceChange={setShootingLance}
+                onMeltaChange={setShootingMelta}
                 onInstantDeathChange={setShootingInstantDeath}
                 onAtomanticShieldChange={setShootingAtomanticShield}
                 onMultipleWoundsChange={setShootingMultipleWoundsEnabled}
                 onMultipleWoundsValueChange={setShootingMultipleWoundsValue}
+                onDamageMitigationRollChange={setShootingDamageMitigationRoll}
+                onDamageMitigationTypeChange={setShootingDamageMitigationType}
+                onNoCoverChange={setShootingNoCover}
                 onHitStrengthChange={setShootingHitStrength}
                 onTargetToughnessChange={setShootingTargetToughness}
                 onArmorPenetrationChange={setShootingArmorPenetration}
                 onWoundValueChange={setShootingWoundValue}
                 onArmorSaveChange={setShootingArmorSave}
                 onWardSaveChange={setShootingWardSave}
+                onDeflagrateChange={setShootingDeflagrate}
+                onBreachingEnabledChange={setShootingBreachingEnabled}
+                onBreachingValueChange={setShootingBreachingValue}
+                onRendingEnabledChange={setShootingRendingEnabled}
+                onRendingValueChange={setShootingRendingValue}
+                onMurderousEnabledChange={setShootingMurderousEnabled}
+                onMurderousValueChange={setShootingMurderousValue}
                 onModifierChange={handleShootingModifierChange}
                 onAverageCalculate={handleShootingAverageCalculate}
                 onThrowCalculate={handleShootingThrowCalculate}
@@ -1579,6 +2738,7 @@ export default function DiceApp() {
                 onRerollWoundChange={setShootingRerollWound}
                 onRerollArmorChange={setShootingRerollArmor}
                 onRerollWardChange={setShootingRerollWard}
+                onRerollMitigationChange={setShootingRerollMitigation}
               />
             ) : phase === 'morale' ? (
               <BreakMoraleCheck
@@ -1777,7 +2937,77 @@ export default function DiceApp() {
                     Back to phases
                   </button>
                 )}
-                {appMode === 'probability' ? (
+                {gameSystem === 'hh2' ? (
+                  appMode === 'probability' && appProbabilityMode === 'range' ? (
+                    <div className="border-2 border-zinc-900 bg-zinc-100 px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700">
+                      Range comparison is not available yet for Horus Heresy combat.
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setProbabilityModeAll('single')}
+                          className="border-2 border-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition-colors hover:bg-zinc-900 hover:text-white"
+                        >
+                          Back to single
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Hh2CombatPhaseCalculator
+                      diceCount={diceCount}
+                      mode={appMode}
+                      attackersAc={attackersAc}
+                      defendersAc={defendersAc}
+                      hitStrength={throwHitStrength}
+                      targetToughness={targetToughness}
+                      targetWounds={combatTargetWounds}
+                      targetType={combatTargetType}
+                      targetArmorValue={combatTargetArmorValue}
+                      armorSave={throwArmorSave}
+                      wardSave={throwWardSave}
+                      instantDeath={combatInstantDeath}
+                      deflagrate={combatDeflagrate}
+                      breachingEnabled={combatBreachingEnabled}
+                      breachingValue={combatBreachingValue}
+                      rendingEnabled={combatRendingEnabled}
+                      rendingValue={combatRendingValue}
+                      murderousEnabled={combatMurderousEnabled}
+                      murderousValue={combatMurderousValue}
+                      errorMessage={errorMessage}
+                      probabilityResults={results}
+                      throwResults={throwResults}
+                      hasProbabilityResults={hasResults}
+                      hasThrowResults={hasThrowResults}
+                      rerollHitConfig={combatRerollHit}
+                      rerollWoundConfig={combatRerollWound}
+                      rerollArmorConfig={combatRerollArmor}
+                      rerollWardConfig={combatRerollWard}
+                      onDiceCountChange={setDiceCount}
+                      onAttackersAcChange={setAttackersAc}
+                      onDefendersAcChange={setDefendersAc}
+                      onHitStrengthChange={setThrowHitStrength}
+                      onTargetToughnessChange={setTargetToughness}
+                      onTargetWoundsChange={setCombatTargetWounds}
+                      onTargetTypeChange={setCombatTargetType}
+                      onTargetArmorValueChange={setCombatTargetArmorValue}
+                      onArmorSaveChange={setThrowArmorSave}
+                      onWardSaveChange={setThrowWardSave}
+                      onInstantDeathChange={setCombatInstantDeath}
+                      onDeflagrateChange={setCombatDeflagrate}
+                      onBreachingEnabledChange={setCombatBreachingEnabled}
+                      onBreachingValueChange={setCombatBreachingValue}
+                      onRendingEnabledChange={setCombatRendingEnabled}
+                      onRendingValueChange={setCombatRendingValue}
+                      onMurderousEnabledChange={setCombatMurderousEnabled}
+                      onMurderousValueChange={setCombatMurderousValue}
+                      onAverageCalculate={handleHh2CombatAverageCalculate}
+                      onThrowCalculate={handleHh2CombatThrowCalculate}
+                      onRerollHitChange={setCombatRerollHit}
+                      onRerollWoundChange={setCombatRerollWound}
+                      onRerollArmorChange={setCombatRerollArmor}
+                      onRerollWardChange={setCombatRerollWard}
+                    />
+                  )
+                ) : appMode === 'probability' ? (
                   <div className="space-y-4">
                     {appProbabilityMode === 'range' ? null : (
                       <button

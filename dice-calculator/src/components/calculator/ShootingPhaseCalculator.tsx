@@ -35,16 +35,29 @@ type ShootingPhaseCalculatorProps = {
   autoHit: boolean;
   targetType: 'living' | 'vehicle';
   targetWounds: string;
+  targetArmorValue: string;
+  lance: boolean;
+  melta: boolean;
   instantDeath: boolean;
   atomanticShield: boolean;
   multipleWoundsEnabled: boolean;
   multipleWoundsValue: string;
+  damageMitigationRoll: string;
+  damageMitigationType: 'feelNoPain' | 'shrouded' | 'other';
+  noCover: boolean;
   hitStrength: string;
   targetToughness: string;
   armorPenetration: string;
   woundValue: string;
   armorSave: string;
   wardSave: string;
+  deflagrate: boolean;
+  breachingEnabled: boolean;
+  breachingValue: string;
+  rendingEnabled: boolean;
+  rendingValue: string;
+  murderousEnabled: boolean;
+  murderousValue: string;
   resultNeeded: number;
   modifiers: {
     longRange: boolean;
@@ -62,16 +75,21 @@ type ShootingPhaseCalculatorProps = {
   rerollWoundConfig: RerollConfig;
   rerollArmorConfig: RerollConfig;
   rerollWardConfig: RerollConfig;
+  rerollMitigationConfig: RerollConfig;
   debug: {
     hitInitialRolls: number[];
     hitRerollRolls: number[];
     woundInitialRolls: number[];
     woundRerollRolls: number[];
+    penetrationTotals: number[];
+    penetrationMaxDice: number[];
+    rendingBonusRolls: number[];
     armorInitialRolls: number[];
     armorRerollRolls: number[];
     wardInitialRolls: number[];
     wardRerollRolls: number[];
     multipleWoundsRolls: number[];
+    penetrationDamageRolls: number[];
   };
   onDiceCountChange: (value: string) => void;
   onProbabilityModeChange: (mode: 'single' | 'range' | null) => void;
@@ -81,16 +99,29 @@ type ShootingPhaseCalculatorProps = {
   onAutoHitChange: (value: boolean) => void;
   onTargetTypeChange: (value: 'living' | 'vehicle') => void;
   onTargetWoundsChange: (value: string) => void;
+  onTargetArmorValueChange: (value: string) => void;
+  onLanceChange: (value: boolean) => void;
+  onMeltaChange: (value: boolean) => void;
   onInstantDeathChange: (value: boolean) => void;
   onAtomanticShieldChange: (value: boolean) => void;
   onMultipleWoundsChange: (value: boolean) => void;
   onMultipleWoundsValueChange: (value: string) => void;
+  onDamageMitigationRollChange: (value: string) => void;
+  onDamageMitigationTypeChange: (value: 'feelNoPain' | 'shrouded' | 'other') => void;
+  onNoCoverChange: (value: boolean) => void;
   onHitStrengthChange: (value: string) => void;
   onTargetToughnessChange: (value: string) => void;
   onArmorPenetrationChange: (value: string) => void;
   onWoundValueChange: (value: string) => void;
   onArmorSaveChange: (value: string) => void;
   onWardSaveChange: (value: string) => void;
+  onDeflagrateChange: (value: boolean) => void;
+  onBreachingEnabledChange: (value: boolean) => void;
+  onBreachingValueChange: (value: string) => void;
+  onRendingEnabledChange: (value: boolean) => void;
+  onRendingValueChange: (value: string) => void;
+  onMurderousEnabledChange: (value: boolean) => void;
+  onMurderousValueChange: (value: string) => void;
   onModifierChange: (key: keyof ShootingPhaseCalculatorProps['modifiers'], value: boolean) => void;
   onAverageCalculate: () => void;
   onThrowCalculate: () => void;
@@ -99,6 +130,7 @@ type ShootingPhaseCalculatorProps = {
   onRerollWoundChange: (config: RerollConfig) => void;
   onRerollArmorChange: (config: RerollConfig) => void;
   onRerollWardChange: (config: RerollConfig) => void;
+  onRerollMitigationChange: (config: RerollConfig) => void;
 };
 
 export default function ShootingPhaseCalculator({
@@ -112,16 +144,29 @@ export default function ShootingPhaseCalculator({
   autoHit,
   targetType,
   targetWounds,
+  targetArmorValue,
+  lance,
+  melta,
   instantDeath,
   atomanticShield,
   multipleWoundsEnabled,
   multipleWoundsValue,
+  damageMitigationRoll,
+  damageMitigationType,
+  noCover,
   hitStrength,
   targetToughness,
   armorPenetration,
   woundValue,
   armorSave,
   wardSave,
+  deflagrate,
+  breachingEnabled,
+  breachingValue,
+  rendingEnabled,
+  rendingValue,
+  murderousEnabled,
+  murderousValue,
   resultNeeded,
   modifiers,
   errorMessage,
@@ -133,6 +178,7 @@ export default function ShootingPhaseCalculator({
   rerollWoundConfig,
   rerollArmorConfig,
   rerollWardConfig,
+  rerollMitigationConfig,
   debug,
   onDiceCountChange,
   onProbabilityModeChange,
@@ -142,16 +188,29 @@ export default function ShootingPhaseCalculator({
   onAutoHitChange,
   onTargetTypeChange,
   onTargetWoundsChange,
+  onTargetArmorValueChange,
+  onLanceChange,
+  onMeltaChange,
   onInstantDeathChange,
   onAtomanticShieldChange,
   onMultipleWoundsChange,
   onMultipleWoundsValueChange,
+  onDamageMitigationRollChange,
+  onDamageMitigationTypeChange,
+  onNoCoverChange,
   onHitStrengthChange,
   onTargetToughnessChange,
   onArmorPenetrationChange,
   onWoundValueChange,
   onArmorSaveChange,
   onWardSaveChange,
+  onDeflagrateChange,
+  onBreachingEnabledChange,
+  onBreachingValueChange,
+  onRendingEnabledChange,
+  onRendingValueChange,
+  onMurderousEnabledChange,
+  onMurderousValueChange,
   onModifierChange,
   onAverageCalculate,
   onThrowCalculate,
@@ -160,12 +219,48 @@ export default function ShootingPhaseCalculator({
   onRerollWoundChange,
   onRerollArmorChange,
   onRerollWardChange,
+  onRerollMitigationChange,
 }: ShootingPhaseCalculatorProps) {
   const isProbability = mode === 'probability';
   const activeProbabilityMode = probabilityMode ?? 'single';
   const toggleLabel = activeProbabilityMode === 'range' ? 'Single value' : 'Comparation';
   const toggleMode = () => onProbabilityModeChange(activeProbabilityMode === 'range' ? 'single' : 'range');
   const isHorusHeresy = systemKey === 'hh2';
+  const hh2PenetrationLabel = targetType === 'vehicle' ? 'Penetrate' : 'Wound';
+  const hh2PenetrationNeededLabel = targetType === 'vehicle' ? 'Penetration needed' : 'Wound needed';
+  const parsedVehicleArmor = targetArmorValue.trim() === '' ? 0 : Number.parseInt(targetArmorValue, 10);
+  const parsedVehicleStrength = Number.parseInt(hitStrength, 10);
+  const effectiveVehicleArmor = lance ? Math.min(parsedVehicleArmor, 12) : parsedVehicleArmor;
+  const vehicleRollMin = melta ? 2 : 1;
+  const vehicleRollMax = melta ? 12 : 6;
+  const vehicleRequiredRoll = isHorusHeresy && targetType === 'vehicle'
+    ? effectiveVehicleArmor - parsedVehicleStrength
+    : null;
+  const vehicleResultDisplay = vehicleRequiredRoll === null || Number.isNaN(vehicleRequiredRoll)
+    ? { main: '-', sub: null }
+    : vehicleRequiredRoll > vehicleRollMax
+      ? { main: 'Impossible', sub: 'Armor value is too high' }
+      : vehicleRequiredRoll <= vehicleRollMin
+        ? { main: 'Any roll', sub: melta ? '2D6' : null }
+        : { main: `${vehicleRequiredRoll}+`, sub: melta ? '2D6' : null };
+  const rerollSummaryKey = [
+    rerollHitConfig.enabled,
+    rerollHitConfig.mode,
+    rerollHitConfig.scope,
+    rerollHitConfig.specificValues,
+    rerollWoundConfig.enabled,
+    rerollWoundConfig.mode,
+    rerollWoundConfig.scope,
+    rerollWoundConfig.specificValues,
+    rerollArmorConfig.enabled,
+    rerollArmorConfig.mode,
+    rerollArmorConfig.scope,
+    rerollArmorConfig.specificValues,
+    rerollWardConfig.enabled,
+    rerollWardConfig.mode,
+    rerollWardConfig.scope,
+    rerollWardConfig.specificValues,
+  ].join('|');
 
   if (isProbability && activeProbabilityMode === 'range') {
     return (
@@ -189,6 +284,13 @@ export default function ShootingPhaseCalculator({
         woundValue={woundValue}
         armorSave={armorSave}
         wardSave={wardSave}
+        deflagrate={deflagrate}
+        breachingEnabled={breachingEnabled}
+        breachingValue={breachingValue}
+        rendingEnabled={rendingEnabled}
+        rendingValue={rendingValue}
+        murderousEnabled={murderousEnabled}
+        murderousValue={murderousValue}
         rerollHitConfig={rerollHitConfig}
         rerollWoundConfig={rerollWoundConfig}
         rerollArmorConfig={rerollArmorConfig}
@@ -218,6 +320,13 @@ export default function ShootingPhaseCalculator({
         onWoundValueChange={onWoundValueChange}
         onArmorSaveChange={onArmorSaveChange}
         onWardSaveChange={onWardSaveChange}
+        onDeflagrateChange={onDeflagrateChange}
+        onBreachingEnabledChange={onBreachingEnabledChange}
+        onBreachingValueChange={onBreachingValueChange}
+        onRendingEnabledChange={onRendingEnabledChange}
+        onRendingValueChange={onRendingValueChange}
+        onMurderousEnabledChange={onMurderousEnabledChange}
+        onMurderousValueChange={onMurderousValueChange}
         onRerollHitChange={onRerollHitChange}
         onRerollWoundChange={onRerollWoundChange}
         onRerollArmorChange={onRerollArmorChange}
@@ -237,8 +346,8 @@ export default function ShootingPhaseCalculator({
   ].filter(Boolean).join(', ') || '-';
   const parsedHitStrength = Number.parseInt(hitStrength, 10);
   const parsedTargetToughness = Number.parseInt(targetToughness, 10);
-  const parsedArmorSave = Number.parseInt(armorSave, 10);
-  const effectiveArmorSave = Number.isNaN(parsedHitStrength) || Number.isNaN(parsedArmorSave)
+  const parsedArmorSave = armorSave.trim() === '' ? null : Number.parseInt(armorSave, 10);
+  const effectiveArmorSave = Number.isNaN(parsedHitStrength) || parsedArmorSave === null || Number.isNaN(parsedArmorSave)
     ? '-'
     : `${parsedArmorSave + (parsedHitStrength - 3)}+`;
   const multipleWoundsLabel = multipleWoundsEnabled ? (multipleWoundsValue.trim() || '-') : 'Off';
@@ -488,7 +597,10 @@ export default function ShootingPhaseCalculator({
 
         {!isHorusHeresy ? (
           <>
-            <SectionBlock title="To wound" contentClassName="mt-3">
+            <SectionBlock
+              title={targetType === 'vehicle' ? 'To penetrate' : 'To wound'}
+              contentClassName="mt-3"
+            >
               <StatGrid
                 fields={[
                   {
@@ -562,6 +674,7 @@ export default function ShootingPhaseCalculator({
                         value: armorSave,
                         min: '1',
                         max: '7',
+                        placeholder: 'Leave empty if none',
                         onChange: onArmorSaveChange,
                       },
                     ]}
@@ -587,6 +700,52 @@ export default function ShootingPhaseCalculator({
                 </div>
               </div>
             </SectionBlock>
+            <SectionBlock title="Damage mitigation" contentClassName="mt-3">
+              <InputField
+                id="shootingDamageMitigation"
+                label="Damage mitigation roll (X+)"
+                value={damageMitigationRoll}
+                min="0"
+                max="7"
+                placeholder="Leave empty if none"
+                onChange={onDamageMitigationRollChange}
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ToggleButton
+                  active={damageMitigationType === 'feelNoPain'}
+                  onClick={() => onDamageMitigationTypeChange('feelNoPain')}
+                  size="sm"
+                >
+                  Feel no pain
+                </ToggleButton>
+                <ToggleButton
+                  active={damageMitigationType === 'shrouded'}
+                  onClick={() => onDamageMitigationTypeChange('shrouded')}
+                  size="sm"
+                >
+                  Shrouded
+                </ToggleButton>
+                <ToggleButton
+                  active={damageMitigationType === 'other'}
+                  onClick={() => onDamageMitigationTypeChange('other')}
+                  size="sm"
+                >
+                  Others
+                </ToggleButton>
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={noCover}
+                  onChange={(e) => onNoCoverChange(e.target.checked)}
+                  className="h-4 w-4 border-2 border-zinc-900"
+                />
+                No cover
+              </label>
+              <div className="mt-3">
+                <ReRollOptions config={rerollMitigationConfig} onChange={onRerollMitigationChange} compact />
+              </div>
+            </SectionBlock>
           </>
         ) : (
           <>
@@ -608,7 +767,10 @@ export default function ShootingPhaseCalculator({
                 </ToggleButton>
               </div>
             </SectionBlock>
-            <SectionBlock title="To wound" contentClassName="mt-3">
+            <SectionBlock
+              title={targetType === 'vehicle' ? 'To penetrate' : 'To wound'}
+              contentClassName="mt-3"
+            >
               {targetType === 'living' ? (
                 <>
                   <StatGrid
@@ -670,57 +832,299 @@ export default function ShootingPhaseCalculator({
                       </p>
                     ) : null}
                   </div>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={instantDeath}
+                        onChange={(e) => onInstantDeathChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Instant death
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={atomanticShield}
+                        onChange={(e) => onAtomanticShieldChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Atomantic shield
+                    </label>
+                  </div>
                 </>
               ) : (
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">
-                  Vehicle wound rules will be added later.
-                </p>
+                <>
+                  <StatGrid
+                    columns={2}
+                    fields={[
+                      {
+                        id: 'shootingHitStrength',
+                        label: 'Strength',
+                        value: hitStrength,
+                        min: '1',
+                        onChange: onHitStrengthChange,
+                      },
+                      {
+                        id: 'shootingTargetArmorValue',
+                        label: 'Armor Value',
+                        value: targetArmorValue,
+                        min: '1',
+                        onChange: onTargetArmorValueChange,
+                      },
+                      {
+                        id: 'shootingArmorPenetration',
+                        label: 'Armor Penetration',
+                        value: armorPenetration,
+                        min: '0',
+                        placeholder: 'Not applied yet',
+                        onChange: onArmorPenetrationChange,
+                      },
+                    ]}
+                  />
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={lance}
+                        onChange={(e) => onLanceChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Lance (armor capped at 12)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={melta}
+                        onChange={(e) => onMeltaChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Melta (2D6 penetration)
+                    </label>
+                  </div>
+                  <div className="mt-3 border-2 border-zinc-900 bg-zinc-900 px-4 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-zinc-200">
+                      Result needed
+                    </p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-white">
+                      {vehicleResultDisplay.main}
+                    </p>
+                    {vehicleResultDisplay.sub ? (
+                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                        {vehicleResultDisplay.sub}
+                      </p>
+                    ) : null}
+                  </div>
+                </>
               )}
-              <div className="mt-3 space-y-2">
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={instantDeath}
-                    onChange={(e) => onInstantDeathChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Instant death
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={atomanticShield}
-                    onChange={(e) => onAtomanticShieldChange(e.target.checked)}
-                    className="h-4 w-4 border-2 border-zinc-900"
-                  />
-                  Atomantic shield
-                </label>
-              </div>
             </SectionBlock>
-            <SectionBlock title="Saves" contentClassName="mt-3">
-              <StatGrid
-                columns={2}
-                fields={[
-                  {
-                    id: 'shootingArmorSave',
-                    label: 'Armor Save (X+)',
-                    value: armorSave,
-                    min: '0',
-                    max: '7',
-                    placeholder: 'Leave empty if none',
-                    onChange: onArmorSaveChange,
-                  },
-                  {
-                    id: 'shootingInvulnerableSave',
-                    label: 'Invulnerable Save (X+)',
-                    value: wardSave,
-                    min: '0',
-                    max: '7',
-                    placeholder: 'Leave empty if none',
-                    onChange: onWardSaveChange,
-                  },
-                ]}
-              />
+            <SectionBlock
+              title={targetType === 'vehicle' ? 'Re-roll to penetrate' : 'Re-roll to wound'}
+              contentClassName="mt-3"
+            >
+              <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
+            </SectionBlock>
+            {isHorusHeresy && targetType === 'living' ? (
+              <SectionBlock title="Special rules" contentClassName="mt-3">
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={deflagrate}
+                      onChange={(e) => onDeflagrateChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Deflagrate
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={breachingEnabled}
+                        onChange={(e) => onBreachingEnabledChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Breaching
+                    </label>
+                    {breachingEnabled ? (
+                      <InputField
+                        id="shootingBreachingValue"
+                        label="Breaching value (X+)"
+                        value={breachingValue}
+                        min="1"
+                        max="6"
+                        onChange={onBreachingValueChange}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={rendingEnabled}
+                        onChange={(e) => onRendingEnabledChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Rending
+                    </label>
+                    {rendingEnabled ? (
+                      <InputField
+                        id="shootingRendingValue"
+                        label="Rending value (X+)"
+                        value={rendingValue}
+                        min="1"
+                        max="6"
+                        onChange={onRendingValueChange}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={murderousEnabled}
+                        onChange={(e) => onMurderousEnabledChange(e.target.checked)}
+                        className="h-4 w-4 border-2 border-zinc-900"
+                      />
+                      Murderous strike
+                    </label>
+                    {murderousEnabled ? (
+                      <InputField
+                        id="shootingMurderousValue"
+                        label="Murderous value (X+)"
+                        value={murderousValue}
+                        min="1"
+                        max="6"
+                        onChange={onMurderousValueChange}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </SectionBlock>
+            ) : null}
+            {isHorusHeresy && targetType === 'vehicle' ? (
+              <SectionBlock title="Special rules" contentClassName="mt-3">
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={rendingEnabled}
+                      onChange={(e) => onRendingEnabledChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    Rending (adds +D3 to penetration)
+                  </label>
+                  {rendingEnabled ? (
+                    <InputField
+                      id="shootingRendingValueVehicle"
+                      label="Rending value (X+)"
+                      value={rendingValue}
+                      min="1"
+                      max="6"
+                      onChange={onRendingValueChange}
+                    />
+                  ) : null}
+                </div>
+              </SectionBlock>
+            ) : null}
+            {targetType === 'living' ? (
+              <>
+                <SectionBlock title="Saves" contentClassName="mt-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                    <div className="space-y-3">
+                      <StatGrid
+                        columns={1}
+                        fields={[
+                          {
+                            id: 'shootingArmorSave',
+                            label: 'Armor Save (X+)',
+                            value: armorSave,
+                            min: '0',
+                            max: '7',
+                            placeholder: 'Leave empty if none',
+                            onChange: onArmorSaveChange,
+                          },
+                        ]}
+                      />
+                      <ReRollOptions config={rerollArmorConfig} onChange={onRerollArmorChange} compact />
+                    </div>
+                    <div className="space-y-3">
+                      <StatGrid
+                        columns={1}
+                        fields={[
+                          {
+                            id: 'shootingInvulnerableSave',
+                            label: 'Invulnerable Save (X+)',
+                            value: wardSave,
+                            min: '0',
+                            max: '7',
+                            placeholder: 'Leave empty if none',
+                            onChange: onWardSaveChange,
+                          },
+                        ]}
+                      />
+                      <ReRollOptions config={rerollWardConfig} onChange={onRerollWardChange} compact />
+                    </div>
+                  </div>
+                </SectionBlock>
+                <SectionBlock title="Damage mitigation" contentClassName="mt-3">
+                  <InputField
+                    id="shootingDamageMitigation"
+                    label="Damage mitigation roll (X+)"
+                    value={damageMitigationRoll}
+                    min="0"
+                    max="7"
+                    placeholder="Leave empty if none"
+                    onChange={onDamageMitigationRollChange}
+                  />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <ToggleButton
+                      active={damageMitigationType === 'feelNoPain'}
+                      onClick={() => onDamageMitigationTypeChange('feelNoPain')}
+                      size="sm"
+                    >
+                      Feel no pain
+                    </ToggleButton>
+                    <ToggleButton
+                      active={damageMitigationType === 'shrouded'}
+                      onClick={() => onDamageMitigationTypeChange('shrouded')}
+                      size="sm"
+                    >
+                      Shrouded
+                    </ToggleButton>
+                    <ToggleButton
+                      active={damageMitigationType === 'other'}
+                      onClick={() => onDamageMitigationTypeChange('other')}
+                      size="sm"
+                    >
+                      Others
+                    </ToggleButton>
+                  </div>
+                  <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={noCover}
+                      onChange={(e) => onNoCoverChange(e.target.checked)}
+                      className="h-4 w-4 border-2 border-zinc-900"
+                    />
+                    No cover
+                  </label>
+                  <div className="mt-3">
+                    <ReRollOptions config={rerollMitigationConfig} onChange={onRerollMitigationChange} compact />
+                  </div>
+                </SectionBlock>
+              </>
+            ) : null}
+            <SectionBlock title="Re-roll summary" contentClassName="mt-3">
+              <div
+                key={rerollSummaryKey}
+                className="grid grid-cols-1 gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600 sm:grid-cols-2"
+              >
+                <div>Hit: <span className="font-mono text-zinc-900">{formatRerollLabel(rerollHitConfig)}</span></div>
+                <div>{hh2PenetrationLabel}: <span className="font-mono text-zinc-900">{formatRerollLabel(rerollWoundConfig)}</span></div>
+                <div>Armor: <span className="font-mono text-zinc-900">{formatRerollLabel(rerollArmorConfig)}</span></div>
+                <div>Invulnerable: <span className="font-mono text-zinc-900">{formatRerollLabel(rerollWardConfig)}</span></div>
+              </div>
             </SectionBlock>
           </>
         )}
@@ -769,16 +1173,85 @@ export default function ShootingPhaseCalculator({
           { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },
           { label: 'Night fighting', value: nightFighting ? 'Yes' : 'No' },
           { label: 'Target', value: targetType },
-          { label: 'Wound needed', value: hh2WoundProfile?.target ? `${hh2WoundProfile.target}+` : '-' },
-          { label: 'Armor Penetration', value: armorPenetration.trim() || '-' },
-          { label: 'Armor Save', value: armorSave.trim() ? `${armorSave}+` : '-' },
+          {
+            label: hh2PenetrationNeededLabel,
+            value: targetType === 'vehicle'
+              ? (vehicleResultDisplay.main === '-' ? '-' : `${vehicleResultDisplay.main}${vehicleResultDisplay.sub ? ` (${vehicleResultDisplay.sub})` : ''}`)
+              : (hh2WoundProfile?.target ? `${hh2WoundProfile.target}+` : '-'),
+          },
+          ...(targetType === 'vehicle'
+            ? [
+              { label: 'Armor value', value: targetArmorValue.trim() || '-' },
+              {
+                label: 'Effective armor',
+                value: Number.isNaN(effectiveVehicleArmor) ? '-' : String(effectiveVehicleArmor),
+              },
+              { label: 'Armor Penetration', value: armorPenetration.trim() || '-' },
+              { label: 'Lance', value: lance ? 'Yes' : 'No' },
+              { label: 'Melta', value: melta ? 'Yes' : 'No' },
+            ]
+            : [
+              { label: 'Armor Penetration', value: armorPenetration.trim() || '-' },
+              { label: 'Armor Save', value: armorSave.trim() ? `${armorSave}+` : '-' },
+            ]),
           { label: 'Invulnerable Save', value: wardSave.trim() ? `${wardSave}+` : '-' },
           { label: 'Instant death', value: isHh2InstantDeath ? 'Yes' : 'No' },
           { label: 'Atomantic shield', value: atomanticShield ? 'Yes' : 'No' },
+          ...(targetType === 'living'
+            ? [
+              { label: 'Deflagrate', value: deflagrate ? 'Yes' : 'No' },
+              {
+                label: 'Breaching',
+                value: breachingEnabled ? (breachingValue.trim() ? `${breachingValue}+` : 'On') : 'Off',
+              },
+              {
+                label: 'Rending',
+                value: rendingEnabled ? (rendingValue.trim() ? `${rendingValue}+` : 'On') : 'Off',
+              },
+              {
+                label: 'Murderous strike',
+                value: murderousEnabled ? (murderousValue.trim() ? `${murderousValue}+` : 'On') : 'Off',
+              },
+            ]
+            : [
+              {
+                label: 'Rending',
+                value: rendingEnabled ? (rendingValue.trim() ? `${rendingValue}+` : 'On') : 'Off',
+              },
+            ]),
           { label: 'Re-roll hit', value: formatRerollLabel(rerollHitConfig) },
           { label: 'Hit initial rolls', value: debug.hitInitialRolls.join(', ') || '-' },
           { label: 'Hit re-rolls', value: debug.hitRerollRolls.join(', ') || '-' },
-          { label: 'Wound rolls', value: debug.woundInitialRolls.join(', ') || '-' },
+          { label: `${hh2PenetrationLabel} initial rolls`, value: debug.woundInitialRolls.join(', ') || '-' },
+          { label: `${hh2PenetrationLabel} re-rolls`, value: debug.woundRerollRolls.join(', ') || '-' },
+          ...(targetType === 'vehicle'
+            ? [
+              { label: 'Penetration totals', value: debug.penetrationTotals.join(', ') || '-' },
+              { label: 'Penetration max dice', value: debug.penetrationMaxDice.join(', ') || '-' },
+              { label: 'Rending bonus rolls', value: debug.rendingBonusRolls.join(', ') || '-' },
+            ]
+            : []),
+          ...(targetType === 'living'
+            ? [
+              { label: 'Rending wounds', value: String(debug.rendingWounds ?? 0) },
+              { label: 'Breaching wounds', value: String(debug.breachingWounds ?? 0) },
+              { label: 'Murderous wounds', value: String(debug.murderousWounds ?? 0) },
+              { label: 'Deflagrate hits', value: String(debug.deflagrateHits ?? 0) },
+              { label: 'Deflagrate extra wounds', value: String(debug.deflagrateExtraWounds ?? 0) },
+            ]
+            : [
+              { label: 'Rending hits', value: String(debug.rendingWounds ?? 0) },
+            ]),
+          { label: `Re-roll ${hh2PenetrationLabel.toLowerCase()}`, value: formatRerollLabel(rerollWoundConfig) },
+          { label: 'Armor initial rolls', value: debug.armorInitialRolls.join(', ') || '-' },
+          { label: 'Armor re-rolls', value: debug.armorRerollRolls.join(', ') || '-' },
+          { label: 'Re-roll armor', value: formatRerollLabel(rerollArmorConfig) },
+          { label: 'Invulnerable initial rolls', value: debug.wardInitialRolls.join(', ') || '-' },
+          { label: 'Invulnerable re-rolls', value: debug.wardRerollRolls.join(', ') || '-' },
+          { label: 'Re-roll invulnerable', value: formatRerollLabel(rerollWardConfig) },
+          ...(targetType === 'vehicle'
+            ? [{ label: 'Penetration damage rolls', value: debug.penetrationDamageRolls.join(', ') || '-' }]
+            : []),
         ] : [
           { label: 'Dice count', value: diceCount || '-' },
           { label: 'Result needed', value: Number.isNaN(resultNeeded) ? '-' : `${resultNeeded}+` },

@@ -92,8 +92,10 @@ export default function ProbabilityCalculator({
   onRerollWardChange,
 }: ProbabilityCalculatorProps) {
   const parsedHitStrength = Number.parseInt(hitStrength, 10);
-  const parsedArmorSave = Number.parseInt(armorSave, 10);
-  const effectiveArmorSave = Number.isNaN(parsedHitStrength) || Number.isNaN(parsedArmorSave)
+  const parsedArmorSave = armorSave.trim() === ''
+    ? null
+    : Number.parseInt(armorSave, 10);
+  const effectiveArmorSave = Number.isNaN(parsedHitStrength) || parsedArmorSave === null || Number.isNaN(parsedArmorSave)
     ? '-'
     : `${parsedArmorSave + (parsedHitStrength - 3)}+`;
   const predatoryLabel = predatoryFighter ? predatoryFighterCount : '-';
@@ -231,6 +233,7 @@ export default function ProbabilityCalculator({
                     value: armorSave,
                     min: '1',
                     max: '7',
+                    placeholder: 'Leave empty if none',
                     onChange: onArmorSaveChange,
                   },
                 ]}

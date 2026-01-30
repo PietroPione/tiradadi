@@ -1,7 +1,7 @@
 export type ThrowDebug = {
   hitTarget: number;
   woundTarget: number;
-  effectiveArmorSave: number;
+  effectiveArmorSave: number | null;
   poisonedAutoWounds: number;
   nonPoisonHits: number;
   predatoryCount: number;
@@ -41,6 +41,9 @@ export default function ThrowDebugPanel({
   poisonedAttack,
   multipleWoundsValue,
 }: ThrowDebugPanelProps) {
+  const armorSaveLabel = debug.effectiveArmorSave !== null && debug.effectiveArmorSave > 1
+    ? `${debug.effectiveArmorSave}+`
+    : '-';
   return (
     <div className="mt-4 border-2 border-dashed border-zinc-400 bg-white px-4 py-4 sm:px-6">
       <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-700">Debug</h3>
@@ -61,7 +64,7 @@ export default function ThrowDebugPanel({
         <p>Wound Initial Rolls: <span className="font-mono text-zinc-900">{debug.woundInitialRolls.join(', ') || '-'}</span></p>
         <p>Wound Re-rolls: <span className="font-mono text-zinc-900">{debug.woundRerollRolls.join(', ') || '-'}</span></p>
         <p>Wound Rolls: <span className="font-mono text-zinc-900">{debug.woundRolls.join(', ') || '-'}</span></p>
-        <p>Armor Save Target: <span className="font-mono text-zinc-900">{debug.effectiveArmorSave}+</span></p>
+        <p>Armor Save Target: <span className="font-mono text-zinc-900">{armorSaveLabel}</span></p>
         <p>Re-roll armor: <span className="font-mono text-zinc-900">{rerollArmorLabel}</span></p>
         <p>Armor Rolls: <span className="font-mono text-zinc-900">{debug.armorRolls.join(', ') || '-'}</span></p>
         <p>Armor Re-rolls: <span className="font-mono text-zinc-900">{debug.armorRerollRolls.join(', ') || '-'}</span></p>

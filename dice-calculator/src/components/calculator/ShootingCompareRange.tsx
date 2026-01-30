@@ -51,6 +51,13 @@ type ShootingInputs = {
   woundValue: string;
   armorSave: string;
   wardSave: string;
+  deflagrate: boolean;
+  breachingEnabled: boolean;
+  breachingValue: string;
+  rendingEnabled: boolean;
+  rendingValue: string;
+  murderousEnabled: boolean;
+  murderousValue: string;
   rerollHitConfig: RerollConfig;
   rerollWoundConfig: RerollConfig;
   rerollArmorConfig: RerollConfig;
@@ -61,6 +68,8 @@ type RangeFieldValues = {
   diceCount: number;
   ballisticSkill: number;
   hitStrength: number;
+  targetToughness: number;
+  targetWounds: number;
   woundValue: number;
   armorSave: number;
   wardSave: number;
@@ -69,10 +78,8 @@ type RangeFieldValues = {
 type CompareConfig = ShootingInputs & {
   id: string;
   label: string;
-  compareMode: 'single' | 'range';
   singleField: keyof RangeFieldValues;
   compareValues: string;
-  compareRangeValues: string;
 };
 
 type ShootingCompareRangeProps = ShootingInputs & {
@@ -98,6 +105,13 @@ type ShootingCompareRangeProps = ShootingInputs & {
   onWoundValueChange: (value: string) => void;
   onArmorSaveChange: (value: string) => void;
   onWardSaveChange: (value: string) => void;
+  onDeflagrateChange: (value: boolean) => void;
+  onBreachingEnabledChange: (value: boolean) => void;
+  onBreachingValueChange: (value: string) => void;
+  onRendingEnabledChange: (value: boolean) => void;
+  onRendingValueChange: (value: string) => void;
+  onMurderousEnabledChange: (value: boolean) => void;
+  onMurderousValueChange: (value: string) => void;
   onRerollHitChange: (config: RerollConfig) => void;
   onRerollWoundChange: (config: RerollConfig) => void;
   onRerollArmorChange: (config: RerollConfig) => void;
@@ -108,21 +122,72 @@ const fieldLabels: Record<keyof RangeFieldValues, string> = {
   diceCount: 'Dice Count',
   ballisticSkill: 'Balistic Skill',
   hitStrength: 'Hit Strength',
+  targetToughness: 'Target Toughness',
+  targetWounds: 'Target Wounds',
   woundValue: 'To Wound (X+)',
   armorSave: 'Armor Save (X+)',
   wardSave: 'Ward Save (X+)',
 };
 
 const parseNumber = (value: string) => Number.parseInt(value, 10);
+const getHh2WoundCategoryChances = (
+  woundTarget: number,
+  rerollConfig: RerollConfig,
+  options: {
+    breachingValue: number | null;
+    rendingValue: number | null;
+    murderousValue: number | null;
+  },
+) => {
+  if (Number.isNaN(woundTarget) || woundTarget <= 0) {
+    return {
+      normalChance: 0,
+      normalAp2Chance: 0,
+      instantChance: 0,
+      instantAp2Chance: 0,
+    };
+  }
+  const probabilities = getFaceProbabilitiesWithReroll(woundTarget, rerollConfig).probabilities;
+  let normalChance = 0;
+  let normalAp2Chance = 0;
+  let instantChance = 0;
+  let instantAp2Chance = 0;
+  for (let roll = 1; roll <= 6; roll += 1) {
+    const chance = probabilities[roll] ?? 0;
+    const isRending = options.rendingValue !== null && roll >= options.rendingValue;
+    const isSuccess = isRending || roll >= woundTarget;
+    if (!isSuccess) {
+      continue;
+    }
+    const isBreaching = options.breachingValue !== null && roll >= options.breachingValue;
+    const isAp2 = isRending || isBreaching;
+    const isInstant = options.murderousValue !== null && roll >= options.murderousValue;
+    if (isInstant) {
+      if (isAp2) {
+        instantAp2Chance += chance;
+      } else {
+        instantChance += chance;
+      }
+    } else if (isAp2) {
+      normalAp2Chance += chance;
+    } else {
+      normalChance += chance;
+    }
+  }
+  return {
+    normalChance,
+    normalAp2Chance,
+    instantChance,
+    instantAp2Chance,
+  };
+};
 
 const buildCompareConfig = (base: ShootingInputs, index: number): CompareConfig => ({
   ...base,
   id: `compare-${Date.now()}-${index}`,
   label: `Compare ${index + 1}`,
-  compareMode: 'range',
   singleField: 'ballisticSkill',
   compareValues: '',
-  compareRangeValues: '',
 });
 
 const parseMultipleWoundsValue = (rawValue: string) => {
@@ -174,7 +239,7 @@ const calculateFinalDamage = (inputs: ShootingInputs, systemKey: 'wfb8' | 'trech
     const parsedStrength = parseNumber(inputs.hitStrength);
     const parsedToughness = parseNumber(inputs.targetToughness);
     const parsedTargetWounds = parseNumber(inputs.targetWounds);
-    const parsedArmorSave = parseNumber(inputs.armorSave);
+    const parsedArmorSave = inputs.armorSave.trim() === '' ? 0 : parseNumber(inputs.armorSave);
     const parsedInvulnerable = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
     const parsedArmorPenetration = inputs.armorPenetration.trim() === ''
       ? Number.NaN
@@ -190,33 +255,94 @@ const calculateFinalDamage = (inputs: ShootingInputs, systemKey: 'wfb8' | 'trech
       }
       successfulWounds = expectedHits * woundChance;
     }
+    if (inputs.targetType !== 'living') {
+      return parseFloat(successfulWounds.toFixed(2));
+    }
+    const breachingValue = inputs.breachingEnabled
+      ? parseNumber(inputs.breachingValue)
+      : null;
+    const rendingValue = inputs.rendingEnabled
+      ? parseNumber(inputs.rendingValue)
+      : null;
+    const murderousValue = inputs.murderousEnabled
+      ? parseNumber(inputs.murderousValue)
+      : null;
+    if (
+      (inputs.breachingEnabled && (!Number.isFinite(breachingValue) || breachingValue! < 1 || breachingValue! > 6)) ||
+      (inputs.rendingEnabled && (!Number.isFinite(rendingValue) || rendingValue! < 1 || rendingValue! > 6)) ||
+      (inputs.murderousEnabled && (!Number.isFinite(murderousValue) || murderousValue! < 1 || murderousValue! > 6))
+    ) {
+      return 0;
+    }
+    const woundProfile = getHh2WoundProfile(parsedStrength, parsedToughness);
+    const woundTarget = woundProfile.target ?? 0;
+    const woundChances = woundProfile.impossible || woundTarget === 0
+      ? { normalChance: 0, normalAp2Chance: 0, instantChance: 0, instantAp2Chance: 0 }
+      : getHh2WoundCategoryChances(woundTarget, inputs.rerollWoundConfig, {
+        breachingValue,
+        rendingValue,
+        murderousValue,
+      });
+    const instantDeathActive = inputs.instantDeath || parsedStrength >= parsedToughness * 2;
+    const effectiveChances = instantDeathActive
+      ? {
+        normalChance: 0,
+        normalAp2Chance: 0,
+        instantChance: woundChances.normalChance + woundChances.instantChance,
+        instantAp2Chance: woundChances.normalAp2Chance + woundChances.instantAp2Chance,
+      }
+      : woundChances;
     const armorBlocked = Number.isFinite(parsedArmorPenetration) &&
       parsedArmorPenetration > 0 &&
       parsedArmorPenetration <= parsedArmorSave;
-    const armorSaveChance = !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
+    const hasArmorSave = inputs.armorSave.trim() !== '';
+    const armorSaveChance = hasArmorSave && !armorBlocked && parsedArmorSave > 1 && parsedArmorSave <= 6
       ? (7 - parsedArmorSave) / 6
       : 0;
     const invulnerableChance = parsedInvulnerable > 1 && parsedInvulnerable <= 6
       ? (7 - parsedInvulnerable) / 6
       : 0;
-    const failedArmorSaves = successfulWounds * (1 - armorSaveChance);
-    const failedInvulnerableSaves = failedArmorSaves * (1 - invulnerableChance);
-    let finalDamage = failedInvulnerableSaves;
-    if (inputs.targetType === 'living' && parsedTargetWounds > 0) {
-      const instantDeathActive = inputs.instantDeath || parsedStrength >= parsedToughness * 2;
-      if (instantDeathActive) {
+    const normalWounds = expectedHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+    const normalAp2Wounds = expectedHits * effectiveChances.normalAp2Chance;
+    const instantWounds = expectedHits * effectiveChances.instantChance;
+    const instantAp2Wounds = expectedHits * effectiveChances.instantAp2Chance;
+    const failedArmorNormal = (normalWounds - normalAp2Wounds) * (1 - armorSaveChance) + normalAp2Wounds;
+    const failedArmorInstant = (instantWounds - instantAp2Wounds) * (1 - armorSaveChance) + instantAp2Wounds;
+    const failedNormal = failedArmorNormal * (1 - invulnerableChance);
+    const failedInstant = failedArmorInstant * (1 - invulnerableChance);
+    let finalDamage = failedNormal + failedInstant;
+    if (instantDeathActive || inputs.murderousEnabled) {
+      if (inputs.atomanticShield) {
+        finalDamage = failedNormal + failedInstant * 2;
+      } else if (parsedTargetWounds > 0) {
+        finalDamage = failedNormal + failedInstant * parsedTargetWounds;
+      }
+    }
+    if (inputs.deflagrate && failedNormal + failedInstant > 0) {
+      const deflagrateHits = failedNormal + failedInstant;
+      const deflagrateNormal = deflagrateHits * (effectiveChances.normalChance + effectiveChances.normalAp2Chance);
+      const deflagrateNormalAp2 = deflagrateHits * effectiveChances.normalAp2Chance;
+      const deflagrateInstant = deflagrateHits * (effectiveChances.instantChance + effectiveChances.instantAp2Chance);
+      const deflagrateInstantAp2 = deflagrateHits * effectiveChances.instantAp2Chance;
+      const deflagrateFailedNormal = (deflagrateNormal - deflagrateNormalAp2) * (1 - armorSaveChance) + deflagrateNormalAp2;
+      const deflagrateFailedInstant = (deflagrateInstant - deflagrateInstantAp2) * (1 - armorSaveChance) + deflagrateInstantAp2;
+      const deflagrateNormalFinal = deflagrateFailedNormal * (1 - invulnerableChance);
+      const deflagrateInstantFinal = deflagrateFailedInstant * (1 - invulnerableChance);
+      if (instantDeathActive || inputs.murderousEnabled) {
         if (inputs.atomanticShield) {
-          finalDamage = failedInvulnerableSaves * 2;
-        } else {
-          finalDamage = failedInvulnerableSaves * parsedTargetWounds;
+          finalDamage += deflagrateNormalFinal + deflagrateInstantFinal * 2;
+        } else if (parsedTargetWounds > 0) {
+          finalDamage += deflagrateNormalFinal + deflagrateInstantFinal * parsedTargetWounds;
         }
+      } else {
+        finalDamage += deflagrateNormalFinal + deflagrateInstantFinal;
       }
     }
     return parseFloat(finalDamage.toFixed(2));
   }
   const parsedStrength = parseNumber(inputs.hitStrength);
   const parsedWound = parseNumber(inputs.woundValue);
-  const parsedArmor = parseNumber(inputs.armorSave);
+  const parsedArmor = inputs.armorSave.trim() === '' ? 0 : parseNumber(inputs.armorSave);
   const parsedWard = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
   const parsedMultiple = inputs.multipleWoundsEnabled ? parseMultipleWoundsValue(inputs.multipleWoundsValue) : null;
   const resultNeeded = getShootingResultNeeded(parsedBallistic, inputs.modifiers, inputs.autoHit);
@@ -243,8 +369,9 @@ const calculateFinalDamage = (inputs: ShootingInputs, systemKey: 'wfb8' | 'trech
     : hitChance;
   const woundChance = getFaceProbabilitiesWithReroll(parsedWound, inputs.rerollWoundConfig).successChance;
   const armorSaveModifier = parsedStrength - 3;
+  const hasArmorSave = inputs.armorSave.trim() !== '';
   const effectiveArmorSave = parsedArmor + armorSaveModifier;
-  const armorSaveChance = effectiveArmorSave > 1
+  const armorSaveChance = hasArmorSave && effectiveArmorSave > 1
     ? getFaceProbabilitiesWithReroll(effectiveArmorSave, inputs.rerollArmorConfig).successChance
     : 0;
   const wardSaveChance = parsedWard > 1
@@ -305,6 +432,13 @@ export default function ShootingCompareRange({
   woundValue,
   armorSave,
   wardSave,
+  deflagrate,
+  breachingEnabled,
+  breachingValue,
+  rendingEnabled,
+  rendingValue,
+  murderousEnabled,
+  murderousValue,
   rerollHitConfig,
   rerollWoundConfig,
   rerollArmorConfig,
@@ -330,6 +464,13 @@ export default function ShootingCompareRange({
   onWoundValueChange,
   onArmorSaveChange,
   onWardSaveChange,
+  onDeflagrateChange,
+  onBreachingEnabledChange,
+  onBreachingValueChange,
+  onRendingEnabledChange,
+  onRendingValueChange,
+  onMurderousEnabledChange,
+  onMurderousValueChange,
   onRerollHitChange,
   onRerollWoundChange,
   onRerollArmorChange,
@@ -354,6 +495,13 @@ export default function ShootingCompareRange({
     woundValue,
     armorSave,
     wardSave,
+    deflagrate,
+    breachingEnabled,
+    breachingValue,
+    rendingEnabled,
+    rendingValue,
+    murderousEnabled,
+    murderousValue,
     rerollHitConfig,
     rerollWoundConfig,
     rerollArmorConfig,
@@ -361,7 +509,16 @@ export default function ShootingCompareRange({
   };
   const isHorusHeresy = systemKey === 'hh2';
   const availableFieldEntries = (Object.entries(fieldLabels) as Array<[keyof RangeFieldValues, string]>)
-    .filter(([key]) => !isHorusHeresy || key === 'diceCount' || key === 'ballisticSkill');
+    .filter(([key]) => {
+      if (!isHorusHeresy) {
+        return key !== 'targetToughness' && key !== 'targetWounds';
+      }
+      return key === 'diceCount'
+        || key === 'ballisticSkill'
+        || key === 'hitStrength'
+        || key === 'targetToughness'
+        || key === 'targetWounds';
+    });
   const [compareItems, setCompareItems] = useState<CompareConfig[]>([buildCompareConfig(baseInputs, 0)]);
   const [chartSeries, setChartSeries] = useState<Array<{ name: string; points: Array<{ x: number; y: number }>; color: string }>>([]);
   const [expectedSeries, setExpectedSeries] = useState<Array<{ name: string; points: Array<{ x: number; y: number }>; color: string }>>([]);
@@ -394,7 +551,11 @@ export default function ShootingCompareRange({
     setCompareItems((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
   const resolveSingleField = (field: keyof RangeFieldValues) => (
-    isHorusHeresy && field !== 'diceCount' && field !== 'ballisticSkill' ? 'ballisticSkill' : field
+    isHorusHeresy
+      ? (['diceCount', 'ballisticSkill', 'hitStrength', 'targetToughness', 'targetWounds'].includes(field)
+        ? field
+        : 'ballisticSkill')
+      : (field === 'targetToughness' || field === 'targetWounds' ? 'ballisticSkill' : field)
   );
 
   const parseCompareValues = (input: string) => {
@@ -403,41 +564,13 @@ export default function ShootingCompareRange({
       .map((value) => Number.parseInt(value.trim(), 10))
       .filter((value) => Number.isFinite(value));
   };
-  const parseRangeValues = (input: string) => {
-    const trimmed = input.trim().replace(/[–—]/g, '-');
-    if (!trimmed) {
-      return [];
-    }
-    if (trimmed.includes('-')) {
-      const parts = trimmed.split('-').map((value) => value.trim()).filter(Boolean);
-      if (parts.length !== 2) {
-        return [];
-      }
-      const [startRaw, endRaw] = parts;
-      const start = Number.parseInt(startRaw, 10);
-      const end = Number.parseInt(endRaw, 10);
-      if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        return [];
-      }
-      const min = Math.min(start, end);
-      const max = Math.max(start, end);
-      return Array.from({ length: max - min + 1 }, (_, index) => min + index);
-    }
-    return parseCompareValues(trimmed);
-  };
-  const hasInvalidCompareValues = compareItems.some((item) => (
-    item.compareMode === 'single'
-      ? parseCompareValues(item.compareValues).length === 0
-      : parseRangeValues(item.compareRangeValues).length === 0
-  ));
+  const hasInvalidCompareValues = compareItems.some((item) => parseCompareValues(item.compareValues).length === 0);
   const baseResult = calculateFinalDamage(baseInputs, systemKey);
 
   const buildSeries = () => {
     const rangeSeries = compareItems.flatMap((item) => {
       const field = resolveSingleField(item.singleField);
-      const rangeValues = item.compareMode === 'single'
-        ? parseCompareValues(item.compareValues)
-        : parseRangeValues(item.compareRangeValues);
+      const rangeValues = parseCompareValues(item.compareValues);
       return rangeValues.map((value) => {
         const inputs: ShootingInputs = {
           ...item,
@@ -449,6 +582,10 @@ export default function ShootingCompareRange({
           inputs.ballisticSkill = value.toString();
         } else if (field === 'hitStrength') {
           inputs.hitStrength = value.toString();
+        } else if (field === 'targetToughness') {
+          inputs.targetToughness = value.toString();
+        } else if (field === 'targetWounds') {
+          inputs.targetWounds = value.toString();
         } else if (field === 'woundValue') {
           inputs.woundValue = value.toString();
         } else if (field === 'armorSave') {
@@ -556,86 +693,141 @@ export default function ShootingCompareRange({
       const counts = Array.from({ length: overallMax + 1 }, () => 0);
       const diceCountValue = parseNumber(inputs.diceCount);
       const ballisticValue = parseNumber(inputs.ballisticSkill);
-      if (isHorusHeresy) {
-        const strengthValue = parseNumber(inputs.hitStrength);
-        const toughnessValue = parseNumber(inputs.targetToughness);
-        const woundProfile = inputs.targetType === 'living'
-          ? getHh2WoundProfile(strengthValue, toughnessValue)
-          : null;
-        const woundTarget = woundProfile?.target ?? 0;
-        const targetWoundsValue = parseNumber(inputs.targetWounds);
-        const armorSaveValue = parseNumber(inputs.armorSave);
-        const invulnerableValue = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
-        const armorPenetrationValue = inputs.armorPenetration.trim() === ''
-          ? Number.NaN
-          : parseNumber(inputs.armorPenetration);
-        const armorBlocked = Number.isFinite(armorPenetrationValue) &&
-          armorPenetrationValue > 0 &&
-          armorPenetrationValue <= armorSaveValue;
-        for (let i = 0; i < iterations; i += 1) {
-          let hitSuccesses = 0;
-          for (let j = 0; j < diceCountValue; j += 1) {
-            const result = rollHh2Hit(ballisticValue, inputs.rerollHitConfig, { nightFighting: inputs.nightFighting });
-            if (result.success) {
-              hitSuccesses += 1;
-            }
+    if (isHorusHeresy) {
+      const strengthValue = parseNumber(inputs.hitStrength);
+      const toughnessValue = parseNumber(inputs.targetToughness);
+      const woundProfile = inputs.targetType === 'living'
+        ? getHh2WoundProfile(strengthValue, toughnessValue)
+        : null;
+      const woundTarget = woundProfile?.target ?? 0;
+      const targetWoundsValue = parseNumber(inputs.targetWounds);
+      const armorSaveValue = inputs.armorSave.trim() === '' ? 0 : parseNumber(inputs.armorSave);
+      const invulnerableValue = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
+      const armorPenetrationValue = inputs.armorPenetration.trim() === ''
+        ? Number.NaN
+        : parseNumber(inputs.armorPenetration);
+      const armorBlocked = Number.isFinite(armorPenetrationValue) &&
+        armorPenetrationValue > 0 &&
+        armorPenetrationValue <= armorSaveValue;
+      const woundSpecificValues = new Set(parseSpecificValues(inputs.rerollWoundConfig.specificValues));
+      const armorSpecificValues = new Set(parseSpecificValues(inputs.rerollArmorConfig.specificValues));
+      const wardSpecificValues = new Set(parseSpecificValues(inputs.rerollWardConfig.specificValues));
+      const breachingValue = inputs.breachingEnabled ? parseNumber(inputs.breachingValue) : null;
+      const rendingValue = inputs.rendingEnabled ? parseNumber(inputs.rendingValue) : null;
+      const murderousValue = inputs.murderousEnabled ? parseNumber(inputs.murderousValue) : null;
+      for (let i = 0; i < iterations; i += 1) {
+        let hitSuccesses = 0;
+        for (let j = 0; j < diceCountValue; j += 1) {
+          const result = rollHh2Hit(ballisticValue, inputs.rerollHitConfig, { nightFighting: inputs.nightFighting });
+          if (result.success) {
+            hitSuccesses += 1;
           }
-          let successfulWounds = hitSuccesses;
-          if (inputs.targetType === 'living') {
-            if (woundProfile?.impossible || woundTarget === 0) {
-              successfulWounds = 0;
-            } else {
-              successfulWounds = 0;
-              for (let k = 0; k < hitSuccesses; k += 1) {
-                const roll = rollDie();
-                if (roll >= woundTarget) {
-                  successfulWounds += 1;
-                }
-              }
-            }
-          }
-          let failedArmorSaves = successfulWounds;
-          if (!armorBlocked && armorSaveValue > 1 && armorSaveValue <= 6) {
-            failedArmorSaves = 0;
-            for (let k = 0; k < successfulWounds; k += 1) {
-              const roll = rollDie();
-              if (roll < armorSaveValue) {
-                failedArmorSaves += 1;
-              }
-            }
-          }
-          let failedInvulnerableSaves = failedArmorSaves;
-          if (invulnerableValue > 1 && invulnerableValue <= 6) {
-            failedInvulnerableSaves = 0;
-            for (let k = 0; k < failedArmorSaves; k += 1) {
-              const roll = rollDie();
-              if (roll < invulnerableValue) {
-                failedInvulnerableSaves += 1;
-              }
-            }
-          }
-          let finalWounds = failedInvulnerableSaves;
-          if (inputs.targetType === 'living') {
-            const instantDeathActive = inputs.instantDeath || strengthValue >= toughnessValue * 2;
-            if (instantDeathActive) {
-              if (inputs.atomanticShield) {
-                finalWounds = 0;
-                for (let k = 0; k < failedInvulnerableSaves; k += 1) {
-                  finalWounds += Math.floor(Math.random() * 3) + 1;
-                }
-              } else if (targetWoundsValue > 0) {
-                finalWounds = failedInvulnerableSaves * targetWoundsValue;
-              }
-            }
-          }
-          const bucket = Math.min(finalWounds, overallMax);
-          counts[bucket] += 1;
         }
+        let failedArmorSaves = 0;
+        let failedInvulnerableSaves = 0;
+        let normalUnsaved = 0;
+        let instantUnsaved = 0;
+        const instantDeathActive = inputs.instantDeath || strengthValue >= toughnessValue * 2;
+        const resolveSave = (isInstant: boolean, isAp2: boolean) => {
+          let armorFailed = true;
+          if (armorSaveValue > 1 && armorSaveValue <= 6 && !armorBlocked && !isAp2) {
+            let roll = rollDie();
+            let isSuccess = roll >= armorSaveValue;
+            if (shouldRerollValue(roll, isSuccess, inputs.rerollArmorConfig, armorSpecificValues)) {
+              roll = rollDie();
+              isSuccess = roll >= armorSaveValue;
+            }
+            armorFailed = !isSuccess;
+          }
+          if (armorFailed) {
+            failedArmorSaves += 1;
+            if (invulnerableValue > 1 && invulnerableValue <= 6) {
+              let roll = rollDie();
+              let isSuccess = roll >= invulnerableValue;
+              if (shouldRerollValue(roll, isSuccess, inputs.rerollWardConfig, wardSpecificValues)) {
+                roll = rollDie();
+                isSuccess = roll >= invulnerableValue;
+              }
+              if (!isSuccess) {
+                failedInvulnerableSaves += 1;
+                if (isInstant) {
+                  instantUnsaved += 1;
+                } else {
+                  normalUnsaved += 1;
+                }
+              }
+            } else {
+              failedInvulnerableSaves += 1;
+              if (isInstant) {
+                instantUnsaved += 1;
+              } else {
+                normalUnsaved += 1;
+              }
+            }
+          }
+        };
+        if (inputs.targetType === 'living' && !(woundProfile?.impossible || woundTarget === 0)) {
+          for (let k = 0; k < hitSuccesses; k += 1) {
+            let roll = rollDie();
+            let isRending = inputs.rendingEnabled && rendingValue !== null && roll >= rendingValue;
+            let isSuccess = isRending || roll >= woundTarget;
+            if (shouldRerollValue(roll, isSuccess, inputs.rerollWoundConfig, woundSpecificValues)) {
+              roll = rollDie();
+              isRending = inputs.rendingEnabled && rendingValue !== null && roll >= rendingValue;
+              isSuccess = isRending || roll >= woundTarget;
+            }
+            if (!isSuccess) {
+              continue;
+            }
+            const isBreaching = inputs.breachingEnabled && breachingValue !== null && roll >= breachingValue;
+            const isAp2 = isRending || isBreaching;
+            const isInstant = instantDeathActive
+              || (inputs.murderousEnabled && murderousValue !== null && roll >= murderousValue);
+            resolveSave(isInstant, isAp2);
+          }
+        }
+        if (inputs.deflagrate && normalUnsaved + instantUnsaved > 0) {
+          const deflagrateHits = normalUnsaved + instantUnsaved;
+          for (let k = 0; k < deflagrateHits; k += 1) {
+            let roll = rollDie();
+            let isRending = inputs.rendingEnabled && rendingValue !== null && roll >= rendingValue;
+            let isSuccess = isRending || roll >= woundTarget;
+            if (shouldRerollValue(roll, isSuccess, inputs.rerollWoundConfig, woundSpecificValues)) {
+              roll = rollDie();
+              isRending = inputs.rendingEnabled && rendingValue !== null && roll >= rendingValue;
+              isSuccess = isRending || roll >= woundTarget;
+            }
+            if (!isSuccess) {
+              continue;
+            }
+            const isBreaching = inputs.breachingEnabled && breachingValue !== null && roll >= breachingValue;
+            const isAp2 = isRending || isBreaching;
+            const isInstant = instantDeathActive
+              || (inputs.murderousEnabled && murderousValue !== null && roll >= murderousValue);
+            resolveSave(isInstant, isAp2);
+          }
+        }
+        let finalWounds = normalUnsaved + instantUnsaved;
+        if (inputs.targetType === 'living') {
+          if (instantDeathActive || inputs.murderousEnabled) {
+            if (inputs.atomanticShield) {
+              finalWounds = normalUnsaved;
+              for (let k = 0; k < instantUnsaved; k += 1) {
+                finalWounds += Math.floor(Math.random() * 3) + 1;
+              }
+            } else if (targetWoundsValue > 0) {
+              finalWounds = normalUnsaved + instantUnsaved * targetWoundsValue;
+            }
+          }
+        }
+        const bucket = Math.min(finalWounds, overallMax);
+        counts[bucket] += 1;
+      }
         return counts.map((count) => count / iterations);
       }
       const hitStrengthValue = parseNumber(inputs.hitStrength);
       const woundValueNumber = parseNumber(inputs.woundValue);
-      const armorSaveValue = parseNumber(inputs.armorSave);
+      const armorSaveValue = inputs.armorSave.trim() === '' ? 0 : parseNumber(inputs.armorSave);
       const wardSaveValue = inputs.wardSave.trim() === '' ? 0 : parseNumber(inputs.wardSave);
       const resultNeeded = getShootingResultNeeded(parseNumber(inputs.ballisticSkill), inputs.modifiers, inputs.autoHit);
       const multipleValue = parseMultipleWoundsValue(inputs.multipleWoundsValue);
@@ -669,9 +861,10 @@ export default function ShootingCompareRange({
           }
         }
 
+        const hasArmorSave = armorSaveValue > 0;
         const effectiveArmor = armorSaveValue + (hitStrengthValue - 3);
         let failedArmor = 0;
-        if (effectiveArmor <= 1 || effectiveArmor > 6) {
+        if (!hasArmorSave || effectiveArmor <= 1 || effectiveArmor > 6) {
           failedArmor = successfulWounds;
         } else {
           for (let k = 0; k < successfulWounds; k += 1) {
@@ -952,6 +1145,84 @@ export default function ShootingCompareRange({
                 <SectionBlock title="Re-roll to wound" contentClassName="mt-3">
                   <ReRollOptions config={rerollWoundConfig} onChange={onRerollWoundChange} compact />
                 </SectionBlock>
+                {isHorusHeresy && targetType === 'living' ? (
+                  <SectionBlock title="Special rules" contentClassName="mt-3">
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                        <input
+                          type="checkbox"
+                          checked={deflagrate}
+                          onChange={(e) => onDeflagrateChange(e.target.checked)}
+                          className="h-4 w-4 border-2 border-zinc-900"
+                        />
+                        Deflagrate
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                          <input
+                            type="checkbox"
+                            checked={breachingEnabled}
+                            onChange={(e) => onBreachingEnabledChange(e.target.checked)}
+                            className="h-4 w-4 border-2 border-zinc-900"
+                          />
+                          Breaching
+                        </label>
+                        {breachingEnabled ? (
+                          <InputField
+                            id="shootingCompareBreachingValue"
+                            label="Breaching value (X+)"
+                            value={breachingValue}
+                            min="1"
+                            max="6"
+                            onChange={onBreachingValueChange}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                          <input
+                            type="checkbox"
+                            checked={rendingEnabled}
+                            onChange={(e) => onRendingEnabledChange(e.target.checked)}
+                            className="h-4 w-4 border-2 border-zinc-900"
+                          />
+                          Rending
+                        </label>
+                        {rendingEnabled ? (
+                          <InputField
+                            id="shootingCompareRendingValue"
+                            label="Rending value (X+)"
+                            value={rendingValue}
+                            min="1"
+                            max="6"
+                            onChange={onRendingValueChange}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">
+                          <input
+                            type="checkbox"
+                            checked={murderousEnabled}
+                            onChange={(e) => onMurderousEnabledChange(e.target.checked)}
+                            className="h-4 w-4 border-2 border-zinc-900"
+                          />
+                          Murderous strike
+                        </label>
+                        {murderousEnabled ? (
+                          <InputField
+                            id="shootingCompareMurderousValue"
+                            label="Murderous value (X+)"
+                            value={murderousValue}
+                            min="1"
+                            max="6"
+                            onChange={onMurderousValueChange}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </SectionBlock>
+                ) : null}
 
                 <SectionBlock title="Savings" contentClassName="mt-3">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
@@ -965,6 +1236,7 @@ export default function ShootingCompareRange({
                             value: armorSave,
                             min: '1',
                             max: '7',
+                            placeholder: 'Leave empty if none',
                             onChange: onArmorSaveChange,
                           },
                         ]}
@@ -1165,49 +1437,20 @@ export default function ShootingCompareRange({
                     ))}
                   </select>
                   <div className="mt-3">
-                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
-                    <select
-                      className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                      value={item.compareMode}
-                      onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
-                    >
-                      <option value="single">Compare single value</option>
-                      <option value="range">Compare</option>
-                    </select>
-                  </div>
-                  {item.compareMode === 'single' ? (
-                    <>
-                      <InputField
-                        id={`${item.id}-compare-value`}
-                        label="Compare values (comma separated)"
-                        value={item.compareValues}
-                        type="text"
-                        placeholder="e.g. 3,4,5"
-                        onChange={(value) => updateCompare(item.id, { compareValues: value })}
-                      />
-                      {!item.compareValues.trim() ? (
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                          Insert at least one value to compare.
-                        </p>
-                      ) : null}
-                    </>
-                  ) : (
                     <InputField
-                      id={`${item.id}-compare-range`}
-                      label="Range values"
-                      value={item.compareRangeValues}
+                      id={`${item.id}-compare-value`}
+                      label="Compare values (comma separated)"
+                      value={item.compareValues}
                       type="text"
-                      placeholder="Use a range (e.g. 2-4) or list (e.g. 2,3,4)"
-                      onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
+                      placeholder="e.g. 3,4,5"
+                      onChange={(value) => updateCompare(item.id, { compareValues: value })}
                     />
-                  )}
-                  {item.compareMode === 'range'
-                    && item.compareRangeValues.trim()
-                    && parseRangeValues(item.compareRangeValues).length === 0 ? (
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                      Invalid range format. Use 2-4 or 2,3,4.
-                    </p>
-                  ) : null}
+                    {!item.compareValues.trim() ? (
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                        Insert at least one value to compare.
+                      </p>
+                    ) : null}
+                  </div>
                 </SectionBlock>
 
               </div>

@@ -236,6 +236,7 @@ export default function ThrowDiceCalculator({
                     value: throwArmorSave,
                     min: '1',
                     max: '7',
+                    placeholder: 'Leave empty if none',
                     onChange: onThrowArmorSaveChange,
                   },
                 ]}

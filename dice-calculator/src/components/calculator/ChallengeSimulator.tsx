@@ -270,7 +270,7 @@ const parseFighter = (fighter: FighterState): ParsedFighter | null => {
     wounds: Number.parseInt(fighter.wounds, 10),
     initiative: Number.parseInt(fighter.initiative, 10),
     attacks: Number.parseInt(fighter.attacks, 10),
-    armorSave: Number.parseInt(fighter.armorSave, 10),
+    armorSave: fighter.armorSave.trim() === '' ? 0 : Number.parseInt(fighter.armorSave, 10),
     wardSave: Number.parseInt(wardSaveValue, 10),
     hitModifierPositive: Number.parseInt(fighter.hitModifierPositive || '0', 10),
     hitModifierNegative: Number.parseInt(fighter.hitModifierNegative || '0', 10),
@@ -482,12 +482,13 @@ const computeBreathAttack = (
   const woundRolls = woundRerollResult.finalRolls;
   const woundSuccesses = woundRolls.filter((roll) => roll >= woundTarget).length;
 
+  const hasArmorSave = defender.armorSave > 0;
   const effectiveArmorSave = defender.armorSave + (breathStrength - 3);
   let failedArmorSaves = woundSuccesses;
   let armorRolls: number[] = [];
   let armorInitialRolls: number[] = [];
   let armorRerollRolls: number[] = [];
-  if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
+  if (hasArmorSave && effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
     armorInitialRolls = Array.from({ length: woundSuccesses }, () => Math.floor(Math.random() * 6) + 1);
     const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, defender.rerollArmor);
     armorRerollRolls = armorRerollResult.rerollRolls;
@@ -593,7 +594,7 @@ const computeProbabilityAttack = (
   const woundChance = getFaceProbabilitiesWithReroll(woundTarget, attacker.rerollWound).successChance;
   const armorSaveModifier = attacker.strength - 3;
   const effectiveArmorSave = defender.armorSave + armorSaveModifier;
-  const armorSaveChance = effectiveArmorSave > 1
+  const armorSaveChance = defender.armorSave > 0 && effectiveArmorSave > 1
     ? getFaceProbabilitiesWithReroll(effectiveArmorSave, defender.rerollArmor).successChance
     : 0;
   const wardSaveChance = defender.wardSave > 1
@@ -717,12 +718,13 @@ const computeThrowAttack = (
     ? poisonedAutoWounds + woundSuccesses
     : woundSuccesses;
 
+  const hasArmorSave = defender.armorSave > 0;
   const effectiveArmorSave = defender.armorSave + (attacker.strength - 3);
   let failedArmorSaves = totalWounds;
   let armorRolls: number[] = [];
   let armorInitialRolls: number[] = [];
   let armorRerollRolls: number[] = [];
-  if (effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
+  if (hasArmorSave && effectiveArmorSave > 1 && effectiveArmorSave <= 6) {
     armorInitialRolls = Array.from({ length: totalWounds }, () => Math.floor(Math.random() * 6) + 1);
     const armorRerollResult = applyRerollWithDebug(armorInitialRolls, effectiveArmorSave, defender.rerollArmor);
     armorRerollRolls = armorRerollResult.rerollRolls;
@@ -890,6 +892,7 @@ const FighterFields = ({
             value: fighter.armorSave,
             min: '1',
             max: '7',
+            placeholder: 'Leave empty if none',
             onChange: (value) => onChange({ ...fighter, armorSave: value }),
           },
           {
@@ -1262,7 +1265,9 @@ export default function ChallengeSimulator({ mode, onBack }: ChallengeSimulatorP
     const defenseWounds = mount
       ? (challenger.mountType === 'monster' ? rider.wounds : Math.max(rider.wounds, mount.wounds))
       : rider.wounds;
-    const defenseArmorSave = Math.max(1, rider.armorSave - armorBonus);
+    const defenseArmorSave = rider.armorSave > 0
+      ? Math.max(1, rider.armorSave - armorBonus)
+      : 0;
     const mountBreathStrength = challenger.mountType === 'monster' && challenger.mountBreathWeapon
       ? Number.parseInt(challenger.mountBreathStrength, 10)
       : null;

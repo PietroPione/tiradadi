@@ -23,10 +23,8 @@ type RangeFieldValues = {
 type CompareConfig = TrechGenericInputs & {
   id: string;
   label: string;
-  compareMode: 'single' | 'range';
   singleField: keyof RangeFieldValues;
   compareValues: string;
-  compareRangeValues: string;
 };
 
 type TrechGenericCompareRangeProps = TrechGenericInputs & {
@@ -52,33 +50,9 @@ const buildCompareConfig = (base: TrechGenericInputs, index: number): CompareCon
   ...base,
   id: `compare-${Date.now()}-${index}`,
   label: `Compare ${index + 1}`,
-  compareMode: 'range',
   singleField: 'plusDice',
   compareValues: '',
-  compareRangeValues: '',
 });
-
-const parseRangeValues = (input: string) => {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return [];
-  }
-  const normalized = trimmed.replace(/[–—]/g, '-');
-  if (normalized.includes('-')) {
-    const [startRaw, endRaw] = normalized.split('-').map((value) => value.trim());
-    const start = Number.parseInt(startRaw, 10);
-    const end = Number.parseInt(endRaw, 10);
-    if (Number.isNaN(start) || Number.isNaN(end)) {
-      return [];
-    }
-    const [min, max] = start <= end ? [start, end] : [end, start];
-    return Array.from({ length: max - min + 1 }, (_, index) => min + index);
-  }
-  return normalized
-    .split(',')
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .filter((value) => !Number.isNaN(value));
-};
 
 const parseCompareValues = (input: string) => (
   input
@@ -123,9 +97,7 @@ export default function TrechGenericCompareRange({
   const buildSeries = () => {
     const rangeSeries = compareItems.flatMap((item) => {
       const field = item.singleField;
-      const values = item.compareMode === 'single'
-        ? parseCompareValues(item.compareValues)
-        : parseRangeValues(item.compareRangeValues);
+      const values = parseCompareValues(item.compareValues);
       return values.map((value) => {
         const inputs: TrechGenericInputs = {
           plusDice: item.plusDice,
@@ -224,11 +196,7 @@ export default function TrechGenericCompareRange({
     setGeneratedBaseResult(baseExpected);
   };
 
-  const hasInvalidCompareValues = compareItems.some((item) => (
-    item.compareMode === 'single'
-      ? parseCompareValues(item.compareValues).length === 0
-      : parseRangeValues(item.compareRangeValues).length === 0
-  ));
+  const hasInvalidCompareValues = compareItems.some((item) => parseCompareValues(item.compareValues).length === 0);
 
   return (
     <div className="space-y-4">
@@ -309,49 +277,20 @@ export default function TrechGenericCompareRange({
                   </select>
                 </div>
                 <div className="mt-3">
-                  <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600">Compare mode</label>
-                  <select
-                    className="mt-2 w-full border-2 border-zinc-900 bg-white px-3 py-2 text-sm"
-                    value={item.compareMode}
-                    onChange={(event) => updateCompare(item.id, { compareMode: event.target.value as 'single' | 'range' })}
-                  >
-                    <option value="single">Compare single value</option>
-                    <option value="range">Compare</option>
-                  </select>
-                </div>
-                {item.compareMode === 'single' ? (
-                  <>
-                    <InputField
-                      id={`${item.id}-compare-value`}
-                      label="Compare values (comma separated)"
-                      value={item.compareValues}
-                      type="text"
-                      placeholder="e.g. 1,2,3"
-                      onChange={(value) => updateCompare(item.id, { compareValues: value })}
-                    />
-                    {!item.compareValues.trim() ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                        Insert at least one value to compare.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
                   <InputField
-                    id={`${item.id}-compare-range`}
-                    label="Range values"
-                    value={item.compareRangeValues}
+                    id={`${item.id}-compare-value`}
+                    label="Compare values (comma separated)"
+                    value={item.compareValues}
                     type="text"
-                    placeholder="Use a range (e.g. 0-2) or list (e.g. 0,1,2)"
-                    onChange={(value) => updateCompare(item.id, { compareRangeValues: value })}
+                    placeholder="e.g. 1,2,3"
+                    onChange={(value) => updateCompare(item.id, { compareValues: value })}
                   />
-                )}
-                {item.compareMode === 'range'
-                  && item.compareRangeValues.trim()
-                  && parseRangeValues(item.compareRangeValues).length === 0 ? (
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
-                    Invalid range format. Use 0-2 or 0,1,2.
-                  </p>
-                ) : null}
+                  {!item.compareValues.trim() ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+                      Insert at least one value to compare.
+                    </p>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
